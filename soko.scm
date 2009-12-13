@@ -9,7 +9,8 @@
 ;  - info display (current lead, move)
 ;	- dead cell highlight
 ;	- command line arguments
-;	- should propose fetching levels by lib-http when not given
+;	- should propose fetching levels by (http-get X) when not given
+;		+ there is no lib-http yet though
 ;	- skins
 
 (import lib-lazy)
