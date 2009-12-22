@@ -6,11 +6,9 @@
 ; fill in also all logical consequences thus helping a bit ;)
 
 ; what to do instead
-;	- keep the current solver separate 
-;		+ use only for level generation
-;	- store the moves and check for conflicts while playing
-;		+ highlight them
-;		+ optionally bold the areas related to current position
+;	- make a simplified version of the current solver
+;		+ use for hints and level generation
+;		+ bit twiddlin not necessary, just about anything is solvable in a few ms anyway
 ;	- level generation
 ;		+ at build time, separate files or on the fly?
 ;		+ where, if anywhere, to store the results?
@@ -18,6 +16,8 @@
 ;			- and keep the format such that when levels are solved the time can be saved there
 ;			- when a level file is not given, just generate a fresh level 
 ;	- different geometries and variants later
+;	- [h]elp = show current status (unsolvable, solvable, hard step but solvable, many solutions)
+;	- [H]ALP = show next most restricted move and it's options
 
 (import lib-lazy)
 
@@ -360,6 +360,9 @@
 ;;; Playing part
 ;;;
 
+; note, the above could be useful for level generation. playing needs only the 
+; stuff below.
+
 (define empty-sudoku (put False 1 False))
 
 (import lib-vt)
@@ -375,13 +378,19 @@
 					(collisions sudo (cdr poss) val))
 				(collisions sudo (cdr poss) val)))))
 
+(define (bound? sudoku pos)
+	(get (get sudoku 'bound False) pos False))
+
 (define (plot sudoku x y n)
 	(lets
 		((cell (cell-of x y))
 		 (bad (collisions sudoku (ref *peers* cell) n)))
-		(if (null? bad)
-			(put sudoku cell n)
-			False)))
+		(cond
+			((bound? sudoku cell)
+				False)
+			((null? bad)
+				(put sudoku cell n))
+			(else False))))
 
 (define mid-row    "+---+---+---+")
 (define normal-row "|   |   |   |")
@@ -412,7 +421,12 @@
 			(for False (iota 0 1 9)
 				(λ (_ y)
 					(let ((pos (+ (* y 9) x)))
-						(plot-cell x y (get state pos False)))))))
+						(if (bound? state pos)
+							(begin
+								(output-set-bold)
+								(plot-cell x y (get state pos False))
+								(output-mode-normal))
+							(plot-cell x y (get state pos False))))))))
 	(flush-port 1)
 )
 
@@ -430,7 +444,7 @@
 
 (define (apply-action sudo x y prev key) ; → sudo x y prev
 	(case key
-		((48 49 50 51 52 53 54 55 56 57)
+		((49 50 51 52 53 54 55 56 57)
 			(let ((res (plot sudo x y (- key 48))))
 				(if res
 					(values res x y (cons (tuple x y sudo) prev))
@@ -442,7 +456,7 @@
 			(lets
 				((cell (cell-of x y))
 				 (val (get sudo cell False)))
-				(if val
+				(if (and val (not (bound? sudo cell)))
 					(values (del sudo (cell-of x y)) x y (cons (tuple x y sudo) prev))
 					(values sudo x y prev))))
 		((117)	; [u]ndo
@@ -451,7 +465,7 @@
 				(lets ((old (car prev)) (x y sudo old))
 					(values sudo x y (cdr prev)))))
 		((113) ; [q]uit
-			(values False x y prev))	; catched by play-sudoku
+			(values False x y prev))	; caught by play-sudoku
 		(else
 			(set-cursor 1 16)
 			(show "No action for key " key)
@@ -478,17 +492,94 @@
 						(if sudo
 							(play-sudoku sudo in x y prev)
 							; should ask if want to save the better scores (if any)
-							'bye)))
+							(begin
+								(clear-screen)
+								(set-cursor 1 1)
+								(print "Bye.")
+								'bye))))
 				(else
 					(set-cursor 1 16)
 					(show "that's funny: " val)
 					(play-sudoku sudo in x y prev))))))
 
-(begin
+(define (string->sudoku str)
+	(for empty-sudoku 
+		(zip cons (iota 1 1 82) (string->runes str))
+		(λ (sudoku node)
+			(lets ((cell char node))
+				(cond
+					((and (< 48 char) (< char 58))
+						(let ((val (- char 48)))
+							(put 
+								(put sudoku cell val)
+								'bound
+								(put (get sudoku 'bound False) cell val))))
+					((eq? char 46)
+						sudoku)
+					(else
+						(show "funny char in sudoku: " char)
+						sudoku))))))
+
+(import lib-args)
+
+(define usage-text 
+"Usage: sudoku
+Arrow- and vi-keys move the cursor, space and backspace erase the current
+value and u undoes your moves. Numbers are used to write down numbers.
+
+Arguments:")
+
+(define about-text 
+"This is a simple sudoku program. This version lacks
+most features. A better version is hopefully available at
+http://code.google.com/p/olgame/")
+
+(define command-line-rules
+   (cl-rules
+      `((about "-A" "--about")
+        (help "-h" "--help")
+        (version "-V" "--version")
+		  (level "-s" "--sudoku" has-arg default "4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......")
+        )))
+
+(define (lets-sudoku level)
 	(raw-console)
 	(clear-screen)
-	(play-sudoku empty-sudoku (port->byte-stream 0) 1 0 null)
+	(play-sudoku 
+		level
+		(port->byte-stream 0) 1 0 null)
 	(normal-console))
 
+(define (sudoku-entry vm-args)
+	(set-signal-action 'halt)	; no thread controller, just exit when breaked
+	(or
+		(process-arguments (cdr vm-args) command-line-rules usage-text
+			(λ (dict others)
+				(cond 
+					((get dict 'help False)
+						(print usage-text)
+						(print-rules command-line-rules)
+						0)
+					((get dict 'about False)
+						(print about-text)
+						0)
+					((get dict 'version False)
+						(print "Yes")
+						0)
+					((get dict 'level False) =>
+						(λ (proposal)
+							; fixme, catch errors and check solvability
+							(lets-sudoku (string->sudoku proposal))
+							0))
+					(else 
+						(print "sudoku: no level given.")
+						0))))
+		(begin
+			(print "que?")
+			1)))
 
+
+(sudoku-entry '(sudoku))
+
+(dump sudoku-entry "sudoku.c")
 

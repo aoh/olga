@@ -1,7 +1,7 @@
 
 CFLAGS=-Wall -O2
 
-everything: bin/five bin/soko
+everything: bin/five bin/soko bin/sudoku
 
 ### gomoku 
 
@@ -18,6 +18,14 @@ bin/soko: soko.c
 
 soko.c: soko.scm bin/owl
 	bin/owl soko.scm
+
+### sudoku
+
+bin/sudoku: sudoku.c 
+	gcc $(CFLAGS) -o bin/sudoku sudoku.c
+
+sudoku.c: sudoku.scm bin/owl
+	bin/owl sudoku.scm
 
 ### owl (needed for scm -> c phase)
 
