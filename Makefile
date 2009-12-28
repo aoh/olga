@@ -1,5 +1,6 @@
 
 CFLAGS=-Wall -O2
+PREFIX=$(HOME)
 
 everything: bin/five bin/soko bin/sudoku
 
@@ -35,3 +36,6 @@ bin/owl: owl.c
 owl.c: owl.c.gz
 	gzip -c -d owl.c.gz > owl.c
 
+install:
+	mkdir -p $(PREFIX)/bin
+	cp bin/* $(PREFIX)/bin

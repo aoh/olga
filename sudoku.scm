@@ -2,38 +2,33 @@
 ;;; Sudoku 
 ;;; 
 
-; empty sudoku can now be played, but i forgot the solver will automatically 
-; fill in also all logical consequences thus helping a bit ;)
-
-; what to do instead
-;	- make a simplified version of the current solver
-;		+ use for hints and level generation
-;		+ bit twiddlin not necessary, just about anything is solvable in a few ms anyway
-;	- level generation
+; - start indexing positios from 0
+; - rename to moniku
+;	+ add support to latin squares and other variants
+;- level generation
 ;		+ at build time, separate files or on the fly?
 ;		+ where, if anywhere, to store the results?
 ;			- ah, $ sudoku --make-levels --difficulty easy --count 100 > my-own-levels.sdk
 ;			- and keep the format such that when levels are solved the time can be saved there
 ;			- when a level file is not given, just generate a fresh level 
-;	- different geometries and variants later
-;	- [h]elp = show current status (unsolvable, solvable, hard step but solvable, many solutions)
-;	- [H]ALP = show next most restricted move and it's options
+; - [h]elp = show current status (unsolvable, solvable, hard step but solvable, many solutions)
+; - [H]ALP = show next most restricted move and it's options
 
 (import lib-lazy)
 
-(define (remove lst a)
-	(keep (λ (x) (not (eq? x a))) lst))
+(define (remove lst val)
+	(cond
+		((null? lst) lst)
+		((eq? (car lst) val) (cdr lst))
+		(else (cons (car lst) (remove (cdr lst) val)))))
 
 (define rows
-	(map (λ (start) (iota start 1 (+ start 9))) 
-		(iota 1 9 82)))
+	(map (λ (s) (iota s 1 (+ s 9))) (iota 1 9 82)))
 
 (define add (λ a (λ b (+ a b))))
 
 (define cols 
-	(map
-		(λ (offset) (map (add offset) (iota 1 9 82)))
-		(iota 0 1 9)))
+	(map (λ (o) (map (add o) (iota 1 9 82))) (iota 0 1 9)))
 
 (define (make-region start)
 	(let ((base (list start (+ start 1) (+ start 2))))
@@ -69,59 +64,23 @@
 (define *peers*
 	(list->tuple (map peers-of (iota 1 1 82))))
 
-(define rasa #b1111111111000)
+(define rasa all-options)
 
-(define-syntax available?
-	(syntax-rules ()
-		((available? a bit)
-			(eq? bit (fxband a bit)))))
-
-(define-syntax freeness
-	(syntax-rules ()
-		((freeness x)
-			(fxband x #b1111))))
-
-(define (show-digit n d)
-	(cond
-		((eq? n 1)
-			(display d))
-		((eq? n 0)
-			(error "digit went to 0: " d))
-		(else
-			(show-digit (>> n 1) (+ d 1)))))
-
-(define all-options (map (λ i (<< 1 i)) (iota 4 1 13)))
-
-(define (try-options fn opts this)
-	(cond
-		((eq? this #b10000000000000)
-			False)
-		((eq? this (fxband opts this))
-			(let ((soln (fn this)))
-				(if soln soln
-					(try-options fn opts (<< this 1)))))
-		(else
-			(try-options fn opts (<< this 1)))))
-
-(define (options bits)
-	(keep (λ node (eq? node (fxband bits node))) all-options))
-
-(define (show-bits n)
-	(for-each
-		(λ (option)
-			(if (available? n option)
-				(show-digit (>> option 4) 1)
-				(display "x")))
-		all-options)
-	(mail 1 32))
+(define (try-options fn opts)
+	(for False opts
+		(λ (soln move) (or soln (fn move)))))
 
 (define (show-state state)
 	(for-each
 		(λ (pos)
 			(let ((node (get state pos rasa)))
-				(if (= (freeness node) 0)
-					(show-digit (>> node 4) 1)
-					(display "."))))
+				(cond
+					((number? node)
+						(display node))
+					((null? (cdr node))
+						(display (car node)))
+					(else 
+						(display ".")))))
 		(iota 1 1 82))
 	(print ""))
 
@@ -129,7 +88,7 @@
 	(if board
 		(let 
 			((options 
-				(keep (λ (pos) (available? (get board pos rasa) this)) area)))
+				(keep (λ (pos) (has? (get board pos rasa) this)) area)))
 			(cond
 				((eq? options null)
 					False)
@@ -141,44 +100,50 @@
 (define (eliminate update board pos val)
 	(if board
 		(let ((this (get board pos rasa)))
-			(if (available? this val)
-				(if (eq? this val)
-					False							; error, removing the only possible (maybe assigned) value
-					(let*
-						((this (- this (+ val 1)))
-						 (board (put board pos this))
-						 (board
-							(if (eq? (freeness this) 0)
-								(begin
-									(fold
-										(λ (board pos) 
-											(eliminate update board pos this))
-										board (ref *peers* pos)))					; no peer can have the same value
-								board)))
+			(cond
+				((eq? this val)
+					False)
+				((pair? this)
+					(if (has? this val)
 						(fold
 							(λ (board area)
 								(check-area update board area val))			; all areas must potentially have the value
-							board
-							(ref *areas* pos))))
-				board))
+							(lets 	
+								((this (remove this val))
+								 (board (put board pos this)))
+								(cond
+									((null? this) False) ; no options 
+									((null? (cdr this)) ; only one
+										(fold
+											(λ (board pos) 
+												(eliminate update board pos (car this)))
+											board (ref *peers* pos)))					; no peer can have the same value
+									(else 
+										board)))
+							(ref *areas* pos))
+						board))
+				(else board)))
 		False))
-
-; assign value to node
-; check that all areas have the removed options
 
 (define (update state pos val)
 	(let ((all (get state pos rasa)))
 		(cond
 			((not state) False)
-			((available? all val)
-				(fold
+			((has? all val)
+				(for state (remove all val)
 					(λ (state ruled-out)
-						(eliminate update state pos ruled-out))
-					state
-					(options (- all val))))
+						(eliminate update state pos ruled-out))))
 			(else False))))
 
-(define no-node (cons 100 False))
+(define no-node (cons False all-options))
+
+(define (shorter? a b)
+	(cond
+		((null? b) False)
+		((null? a) True)
+		(else (shorter? (cdr a) (cdr b)))))
+
+(define empty-sudoku (put False 1 rasa))
 
 ; state = ff of pos -> status
 (define (most-restricted state)
@@ -186,175 +151,38 @@
 		(λ (return)
 			(let ((best
 				(ff-fold
-					(λ (best pos val)
-						(let ((this (freeness val)))
-							(cond
-								((eq? this 0) best)
-								((eq? this 1) (return pos))		
-								((< this (car best)) (cons this pos))
-								(else best))))
-					no-node
-					state)))
+					(λ (best pos val) ; best = (move|False . opts)
+						(cond
+							((eq? pos 'bound) best) ; skip level info
+							((and (pair? val) (pair? (cdr val)) (shorter? val (cdr best)))
+								(cons pos val))
+							(else best)))
+					no-node state)))
 				(if (eq? best no-node)
-					(if state False 1)
-					(cdr best))))))
-
+					(if (eq? state empty-sudoku) 1 False)
+					(car best))))))
 
 (define (solve state)
 	(if state
 		(let ((next (most-restricted state)))
 			(if next
 				(try-options
-					(λ (option)
-						(solve (update state next option)))
-					(get state next rasa)
-					#b10000)
-				state))
+					(λ (option) (solve (update state next option)))
+					(get state next rasa))
+				state)) ; solved
 		False))
 
-;;; and a quick test
+(define (solved? state)
+	(and state
+		(eq? state (solve state))))
 
-; eww, the original used byte-based io. a quick change to strings here.
-
-(define (read-solve-board state pos in)
-	(if (null? in)
-		False
-		(let ((byte (car in)) (in (cdr in)))
-			(cond
-				((not state) False)
-				((eof? byte) False)
-				((eq? byte 46)
-					(read-solve-board state (+ pos 1) in))
-				((and (< 47 byte) (< byte 58))
-					(read-solve-board
-						(update state pos (<< 1 (+ (- byte 48) 3)))
-						(+ pos 1) in))
-				((and (eq? byte 10) state)
-					(display " <- ")
-					(show-state state)
-					(let ((res (solve state)))
-						(if res
-							(begin
-								(display " -> ")
-								(show-state res)
-								(print "")
-								in)
-							(begin
-								(print " *** NOT SOLVED ***")
-								False))))
-				(else
-					(read-solve-board state pos in))))))
-				
-(define empty-sudoku (put False 1 rasa))
-
-(define (play-boards str)
-	(let loop ((input (string->bytes str)))
-		(let ((input (read-solve-board empty-sudoku 1 input)))
-			(if input (loop input) 'done))))
-				
-(show-state
-	(solve (update empty-sudoku 1 #b10000)))
-
-;; old test levels, probably from some collection of hard sudokus. NOT MINE!
-(play-boards 
-";4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......
-;52...6.........7.13...........4..8..6......5...........418.........3..2...87.....
-;6.....8.3.4.7.................5.4.7.3..2.....1.6.......2.....5.....8.6......1....
-;48.3............71.2.......7.5....6....2..8.............1.76...3.....4......5....
-;....14....3....2...7..........9...3.6.1.............8.2.....1.4....5.6.....7.8...
-;......52..8.4......3...9...5.1...6..2..7........3.....6...1..........7.4.......3.
-;6.2.5.........3.4..........43...8....1....2........7..5..27...........81...6.....
-;.524.........7.1..............8.2...3.....6...9.5.....1.6.3...........897........
-;6.2.5.........4.3..........43...8....1....2........7..5..27...........81...6.....
-;.923.........8.1...........1.7.4...........658.........6.5.2...4.....7.....9.....
-;6..3.2....5.....1..........7.26............543.........8.15........4.2........7..
-;.6.5.1.9.1...9..539....7....4.8...7.......5.8.817.5.3.....5.2............76..8...
-;..5...987.4..5...1..7......2...48....9.1.....6..2.....3..6..2.......9.7.......5..
-;3.6.7...........518.........1.4.5...7.....6.....2......2.....4.....8.3.....5.....
-;1.....3.8.7.4..............2.3.1...........958.........5.6...7.....8.2...4.......
-;6..3.2....4.....1..........7.26............543.........8.15........4.2........7..
-;....3..9....2....1.5.9..............1.2.8.4.6.8.5...2..75......4.1..6..3.....4.6.
-;45.....3....8.1....9...........5..9.2..7.....8.........1..4..........7.2...6..8..
-;.237....68...6.59.9.....7......4.97.3.7.96..2.........5..47.........2....8.......
-;..84...3....3.....9....157479...8........7..514.....2...9.6...2.5....4......9..56
-;.98.1....2......6.............3.2.5..84.........6.........4.8.93..5...........1..
-;..247..58..............1.4.....2...9528.9.4....9...1.........3.3....75..685..2...
-;4.....8.5.3..........7......2.....6.....5.4......1.......6.3.7.5..2.....1.9......
-;.2.3......63.....58.......15....9.3....7........1....8.879..26......6.7...6..7..4
-;1.....7.9.4...72..8.........7..1..6.3.......5.6..4..2.........8..53...7.7.2....46
-;4.....3.....8.2......7........1...8734.......6........5...6........1.4...82......
-;.......71.2.8........4.3...7...6..5....2..3..9........6...7.....8....4......5....
-;6..3.2....4.....8..........7.26............543.........8.15........8.2........7..
-;.47.8...1............6..7..6....357......5....1..6....28..4.....9.1...4.....2.69.
-;......8.17..2........5.6......7...5..1....3...8.......5......2..4..8....6...3....
-;38.6.......9.......2..3.51......5....3..1..6....4......17.5..8.......9.......7.32
-;...5...........5.697.....2...48.2...25.1...3..8..3.........4.7..13.5..9..2...31..
-;.2.......3.5.62..9.68...3...5..........64.8.2..47..9....3.....1.....6...17.43....
-;.8..4....3......1........2...5...4.69..1..8..2...........3.9....6....5.....2.....
-;..8.9.1...6.5...2......6....3.1.7.5.........9..4...3...5....2...7...3.8.2..7....4
-;4.....5.8.3..........7......2.....6.....5.8......1.......6.3.7.5..2.....1.8......
-;1.....3.8.6.4..............2.3.1...........958.........5.6...7.....8.2...4.......
-;1....6.8..64..........4...7....9.6...7.4..5..5...7.1...5....32.3....8...4........
-;249.6...3.3....2..8.......5.....6......2......1..4.82..9.5..7....4.....1.7...3...
-;...8....9.873...4.6..7.......85..97...........43..75.......3....3...145.4....2..1
-;...5.1....9....8...6.......4.1..........7..9........3.8.....1.5...2..4.....36....
-;......8.16..2........7.5......6...2..1....3...8.......2......7..3..8....5...4....
-;.476...5.8.3.....2.....9......8.5..6...1.....6.24......78...51...6....4..9...4..7
-;.....7.95.....1...86..2.....2..73..85......6...3..49..3.5...41724................
-;.4.5.....8...9..3..76.2.....146..........9..7.....36....1..4.5..6......3..71..2..
-;.834.........7..5...........4.1.8..........27...3.....2.6.5....5.....8........1..
-;..9.....3.....9...7.....5.6..65..4.....3......28......3..75.6..6...........12.3.8
-;.26.39......6....19.....7.......4..9.5....2....85.....3..2..9..4....762.........4
-;2.3.8....8..7...........1...6.5.7...4......3....1............82.5....6...1.......
-;6..3.2....1.....5..........7.26............843.........8.15........8.2........7..
-;1.....9...64..1.7..7..4.......3.....3.89..5....7....2.....6.7.9.....4.1....129.3.
-;.........9......84.623...5....6...453...1...6...9...7....1.....4.5..2....3.8....9
-;.2....5938..5..46.94..6...8..2.3.....6..8.73.7..2.........4.38..7....6..........5
-;9.4..5...25.6..1..31......8.7...9...4..26......147....7.......2...3..8.6.4.....9.
-;...52.....9...3..4......7...1.....4..8..453..6...1...87.2........8....32.4..8..1.
-;53..2.9...24.3..5...9..........1.827...7.........981.............64....91.2.5.43.
-;1....786...7..8.1.8..2....9........24...1......9..5...6.8..........5.9.......93.4
-;....5...11......7..6.....8......4.....9.1.3.....596.2..8..62..7..7......3.5.7.2..
-;.47.2....8....1....3....9.2.....5...6..81..5.....4.....7....3.4...9...1.4..27.8..
-;......94.....9...53....5.7..8.4..1..463...........7.8.8..7.....7......28.5.26....
-;.2......6....41.....78....1......7....37.....6..412....1..74..5..8.5..7......39..
-;1.....3.8.6.4..............2.3.1...........758.........7.5...6.....8.2...4.......
-;2....1.9..1..3.7..9..8...2.......85..6.4.........7...3.2.3...6....5.....1.9...2.5
-;..7..8.....6.2.3...3......9.1..5..6.....1.....7.9....2........4.83..4...26....51.
-;...36....85.......9.4..8........68.........17..9..45...1.5...6.4....9..2.....3...
-;34.6.......7.......2..8.57......5....7..1..2....4......36.2..1.......9.......7.82
-;......4.18..2........6.7......8...6..4....3...1.......6......2..5..1....7...3....
-;.4..5..67...1...4....2.....1..8..3........2...6...........4..5.3.....8..2........
-;.......4...2..4..1.7..5..9...3..7....4..6....6..1..8...2....1..85.9...6.....8...3
-;8..7....4.5....6............3.97...8....43..5....2.9....6......2...6...7.71..83.2
-;.8...4.5....7..3............1..85...6.....2......4....3.26............417........
-;....7..8...6...5...2...3.61.1...7..2..8..534.2..9.......2......58...6.3.4...1....
-;......8.16..2........7.5......6...2..1....3...8.......2......7..4..8....5...3....
-;.2..........6....3.74.8.........3..2.8..4..1.6..5.........1.78.5....9..........4.
-;.52..68.......7.2.......6....48..9..2..41......1.....8..61..38.....9...63..6..1.9
-;....1.78.5....9..........4..2..........6....3.74.8.........3..2.8..4..1.6..5.....
-;1.......3.6.3..7...7...5..121.7...9...7........8.1..2....8.64....9.2..6....4.....
-;4...7.1....19.46.5.....1......7....2..2.3....847..6....14...8.6.2....3..6...9....
-;......8.17..2........5.6......7...5..1....3...8.......5......2..3..8....6...4....
-;963......1....8......2.5....4.8......1....7......3..257......3...9.2.4.7......9..
-;15.3......7..4.2....4.72.....8.........9..1.8.1..8.79......38...........6....7423
-;..........5724...98....947...9..3...5..9..12...3.1.9...6....25....56.....7......6
-;....75....1..2.....4...3...5.....3.2...8...1.......6.....1..48.2........7........
-;6.....7.3.4.8.................5.4.8.7..2.....1.3.......2.....5.....7.9......1....
-;....6...4..6.3....1..4..5.77.....8.5...8.....6.8....9...2.9....4....32....97..1..
-;.32.....58..3.....9.428...1...4...39...6...5.....1.....2...67.8.....4....95....6.
-;...5.3.......6.7..5.8....1636..2.......4.1.......3...567....2.8..4.7.......2..5..
-;.5.3.7.4.1.........3.......5.8.3.61....8..5.9.6..1........4...6...6927....2...9..
-;..5..8..18......9.......78....4.....64....9......53..2.6.........138..5....9.714.
-;..........72.6.1....51...82.8...13..4.........37.9..1.....238..5.4..9.........79.
-;...658.....4......12............96.7...3..5....2.8...3..19..8..3.6.....4....473..
-;.2.3.......6..8.9.83.5........2...8.7.9..5........6..4.......1...1...4.22..7..8.9
-;.5..9....1.....6.....3.8.....8.4...9514.......3....2..........4.8...6..77..15..6.
-;.....2.......7...17..3...9.8..7......2.89.6...13..6....9..5.824.....891..........
-;3...8.......7....51..............36...2..4....7...........6.13..452...........8..
-")
-
-; ----
+(define (level->node level)
+	(ff-fold
+		(lambda (sudoku pos val)
+			(if (number? pos)
+				(and sudoku (update sudoku pos val))
+				sudoku))
+		empty-sudoku level))
 
 ;;;
 ;;; Playing part
@@ -363,11 +191,12 @@
 ; note, the above could be useful for level generation. playing needs only the 
 ; stuff below.
 
-(define empty-sudoku (put False 1 False))
 
 (import lib-vt)
 
 (define (cell-of x y) (+ (* y 9) x))
+; off by one occasionally -> change indexing, not this
+(define (coords-of cell) (values (rem cell 9) (div cell 9)))
 
 (define (collisions sudo poss val)
 	(if (null? poss)
@@ -442,6 +271,45 @@
 (define left? (dir-check 'left 104))
 (define right? (dir-check 'right 108))
 
+(define (propose-move node level)
+	(ff-fold
+		(λ (best pos opts)
+			(cond
+				((get level pos False) best)
+				((not best) pos)
+				((< (length (get node pos rasa)) (length (get node best rasa))) pos)
+				(else best)))
+		False node))
+
+(define (show-solvability sudo x y)
+	(set-cursor 1 16)
+	(lets
+		((sudoku (level->node sudo))
+		 (res (solve sudoku)))
+		(cond
+			((not sudoku)
+				(print "Arr, you are hosed.")
+				(values x y))
+			((not res)
+				(print "Arr, you will be hosed.")
+				(values x y))
+			(else
+				; note, most restricted does not give the definite ones
+				(let ((best (propose-move sudoku sudo)))
+					(if best
+						(lets 
+							((x y (coords-of best))
+							 (opts (get sudoku best all-options)))
+							(display "You are doing fine. ")
+							(if (= (length opts) 1)
+								(print* (list "This must logically be " (car opts) "."))
+								(print* (list "This is one of " opts ".")))
+							; (set-cursor 1 17) (show-state res) ; cheat
+							(values x y))
+						(begin
+							(print "You are done.")
+							(values x y))))))))
+
 (define (apply-action sudo x y prev key) ; → sudo x y prev
 	(case key
 		((49 50 51 52 53 54 55 56 57)
@@ -466,6 +334,9 @@
 					(values sudo x y (cdr prev)))))
 		((113) ; [q]uit
 			(values False x y prev))	; caught by play-sudoku
+		((116) ; [t]rouble
+			(lets ((x y (show-solvability sudo x y)))
+				(values sudo x y prev)))
 		(else
 			(set-cursor 1 16)
 			(show "No action for key " key)
@@ -579,7 +450,7 @@ http://code.google.com/p/olgame/")
 			1)))
 
 
-(sudoku-entry '(sudoku))
+(sudoku-entry '(sudoku "."))
 
 (dump sudoku-entry "sudoku.c")
 
