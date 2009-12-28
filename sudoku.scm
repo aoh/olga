@@ -186,12 +186,57 @@
 				sudoku))
 		empty-sudoku level))
 
+
+;;;
+;;; Sudoku generation
+;;;
+
+(import lib-random rand)
+
+; a suitable sudoku for now is one which can be solved by logical
+; inference (as provided by the solver) without backtracking. this 
+; should later be the medium difficulty. hard ones have at least 
+; one move which has two options, only one of which will be correct 
+; and apparent after plotting it.
+
+(define (suitable? sudoku)
+	(ff-fold (λ (is pos opts) (and is (= (length opts) 1))) True sudoku))
+
+(define (moves->sudoku moves) ; moves = ((pos . val) ...)
+	(for (put False 'bound (list->ff moves)) moves
+		(λ (sudoku move) (put sudoku (car move) (cdr move)))))
+
+(define (maybe-make-sudoku rst sudo n moves)
+	(cond
+		((suitable? sudo) (display "$") (values rst (moves->sudoku moves)))
+		((> (length moves) 28) (display "x") (values rst False))
+		((> n 20) (display "o") (values rst False))
+		(else
+			(lets
+				((rst pos (rand rst 81))
+				 (opts (get sudo pos rasa))
+				 (rst try-opt (rand rst (length opts)))
+				 (val (lref opts try-opt))
+				 (new-sudoku (update sudo pos val)))
+				(if new-sudoku
+					(maybe-make-sudoku rst new-sudoku 0 (cons (cons pos val) moves))
+					(maybe-make-sudoku rst sudo (+ n 1) moves))))))
+
+(define (make-sudoku rst)
+	(display "making a sudoku: ")
+	(let loop ((rst rst))
+		(lets ((rst sudoku (maybe-make-sudoku rst empty-sudoku 0 null)))
+			(if sudoku
+				(begin
+					(print " done")
+					(values rst sudoku))
+				(begin
+					(flush-port 1)
+					(loop rst))))))
+
 ;;;
 ;;; Playing part
 ;;;
-
-; note, the above could be useful for level generation. playing needs only the 
-; stuff below.
 
 
 (import lib-vt)
@@ -290,6 +335,8 @@
 				(else best)))
 		False node))
 
+(define (solvable? sudo) (solve (level->node sudo)))
+
 (define (show-solvability sudo x y)
 	(set-cursor 1 16)
 	(lets
@@ -351,36 +398,45 @@
 			(show "No action for key " key)
 			(values sudo x y prev))))
 
+(define (solved? sudo)
+	(fold (λ (is pos) (and is (get sudo pos False))) True (cells)))
+
 (define (play-sudoku sudo in x y prev) 
 	(print-sudoku sudo)
-	(plot-cell x y 'cursor)
-	(flush-port 1)
-	(lets ((ok val in (parse-vt in)))
-		(clear-screen)
-		(if ok
-			(cond
-				((up? val)
-					(play-sudoku sudo in x (max 0 (- y 1)) prev))
-				((down? val)
-					(play-sudoku sudo in x (min 8 (+ y 1)) prev))
-				((left? val)
-					(play-sudoku sudo in (max 0 (- x 1)) y prev))
-				((right? val)
-					(play-sudoku sudo in (min 8 (+ x 1)) y prev))
-				((eq? (ref val 1) 'key)
-					(lets ((sudo x y prev (apply-action sudo x y prev (ref val 2))))
-						(if sudo
-							(play-sudoku sudo in x y prev)
-							; should ask if want to save the better scores (if any)
-							(begin
-								(clear-screen)
-								(set-cursor 1 1)
-								(print "Bye.")
-								'bye))))
-				(else
-					(set-cursor 1 16)
-					(show "that's funny: " val)
-					(play-sudoku sudo in x y prev))))))
+	(if (solved? sudo)
+		(begin
+			(set-cursor 1 16)
+			(print "There, you fixed it!")
+			0)
+		(begin
+			(plot-cell x y 'cursor)
+			(flush-port 1)
+			(lets ((ok val in (parse-vt in)))
+				(clear-screen)
+				(if ok
+					(cond
+						((up? val)
+							(play-sudoku sudo in x (max 0 (- y 1)) prev))
+						((down? val)
+							(play-sudoku sudo in x (min 8 (+ y 1)) prev))
+						((left? val)
+							(play-sudoku sudo in (max 0 (- x 1)) y prev))
+						((right? val)
+							(play-sudoku sudo in (min 8 (+ x 1)) y prev))
+						((eq? (ref val 1) 'key)
+							(lets ((sudo x y prev (apply-action sudo x y prev (ref val 2))))
+								(if sudo
+									(play-sudoku sudo in x y prev)
+									; should ask if want to save the better scores (if any)
+									(begin
+										(clear-screen)
+										(set-cursor 1 1)
+										(print "Bye.")
+										'bye))))
+						(else
+							(set-cursor 1 16)
+							(show "that's funny: " val)
+							(play-sudoku sudo in x y prev))))))))
 
 (define (string->sudoku str)
 	(for False
@@ -403,23 +459,26 @@
 (import lib-args)
 
 (define usage-text 
-"Usage: sudoku
-Arrow- and vi-keys move the cursor, space and backspace erase the current
-value and u undoes your moves. Numbers are used to write down numbers.
+"Usage: sudoku [args]
+A logically solvable sudoku will be generated unless a sudoku is given 
+with the -s command line flag. Arrow- and vi-keys can be used to move the
+cursor, space and backspace clear numbers, u undoes moves and numbers 
+write them down if applicable. If you have trouble, press t for help 
+or q to quit.
 
 Arguments:")
 
 (define about-text 
-"This is a simple sudoku program. This version lacks
-most features. A better version is hopefully available at
-http://code.google.com/p/olgame/")
+"This is a simple Sudoku program. 
+Written by Aki Helin.
+A better one is hopefully already available at http://code.google.com/p/olgame/")
 
 (define command-line-rules
    (cl-rules
       `((about "-A" "--about")
         (help "-h" "--help")
         (version "-V" "--version")
-		  (level "-s" "--sudoku" has-arg default "4.....8.5.3..........7......2.....6.....8.4......1.......6.3.7.5..2.....1.4......")
+		  (level "-s" "--sudoku" has-arg comment "play a specific level, like 123...456")
         )))
 
 (define (lets-sudoku level)
@@ -448,18 +507,24 @@ http://code.google.com/p/olgame/")
 						0)
 					((get dict 'level False) =>
 						(λ (proposal)
-							; fixme, catch errors and check solvability
-							(lets-sudoku (string->sudoku proposal))
-							0))
+							(lets 
+								((sudo (string->sudoku proposal))
+								 (node (level->node sudo))
+								 (soln (solve node)))
+								(cond
+									((not sudo) (print "Bad sudoku.") 1)
+									((not node) (print "Inconsistent sudoku.") 2)
+									((not soln) (print "Unsolvable sudoku.") 3)
+									(else (lets-sudoku sudo))))))
 					(else 
-						(print "sudoku: no level given.")
-						0))))
+						(lets ((rst sudoku (make-sudoku (time 1))))
+							(lets-sudoku sudoku))))))
 		(begin
 			(print "que?")
 			1)))
 
 
-(sudoku-entry '(sudoku "-s" "123456789"))
+; (sudoku-entry '(sudoku))
 
 (dump sudoku-entry "sudoku.c")
 
