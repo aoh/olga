@@ -2,7 +2,6 @@
 ;;; Sudoku 
 ;;; 
 
-; - start indexing positios from 0
 ; - rename to moniku
 ;	+ add support to latin squares and other variants
 ;- level generation
@@ -22,13 +21,15 @@
 		((eq? (car lst) val) (cdr lst))
 		(else (cons (car lst) (remove (cdr lst) val)))))
 
+(define (cells) (iota 0 1 81))
+
 (define rows
-	(map (λ (s) (iota s 1 (+ s 9))) (iota 1 9 82)))
+	(map (λ (s) (iota s 1 (+ s 9))) (iota 0 9 81)))
 
 (define add (λ a (λ b (+ a b))))
 
 (define cols 
-	(map (λ (o) (map (add o) (iota 1 9 82))) (iota 0 1 9)))
+	(map (λ (o) (map (add o) (iota 0 9 81))) (iota 0 1 9)))
 
 (define (make-region start)
 	(let ((base (list start (+ start 1) (+ start 2))))
@@ -36,9 +37,9 @@
 
 (define regions
 	(map make-region
-		(list 1 4 7 
-			(+ 1 27) (+ 4 27) (+ 7 27)
-			(+ 1 54) (+ 4 54) (+ 7 54))))
+		(list 0 3 6 
+			(+ 0 27) (+ 3 27) (+ 6 27)
+			(+ 0 54) (+ 3 54) (+ 6 54))))
 
 (define all-options (iota 1 1 10))
 
@@ -50,8 +51,9 @@
 		(keep (λ (x) (has? x pos)) all-areas)))
 
 (define *areas*
-	(list->tuple (map areas-of (iota 1 1 82))))
-		
+	(list->ff
+		(map (λ (p) (cons p (areas-of p))) (cells))))
+	
 (define (remove-dups lst)
 	(if (null? lst)
 		null
@@ -62,7 +64,7 @@
 	(remove (sort < (remove-dups (foldr append null (areas-of pos)))) pos))
 
 (define *peers*
-	(list->tuple (map peers-of (iota 1 1 82))))
+	(list->ff (map (λ (p) (cons p (peers-of p))) (cells))))
 
 (define rasa all-options)
 
@@ -117,10 +119,10 @@
 										(fold
 											(λ (board pos) 
 												(eliminate update board pos (car this)))
-											board (ref *peers* pos)))					; no peer can have the same value
+											board (get *peers* pos 'bug)))					; no peer can have the same value
 									(else 
 										board)))
-							(ref *areas* pos))
+							(get *areas* pos 'bug))
 						board))
 				(else board)))
 		False))
@@ -213,7 +215,7 @@
 (define (plot sudoku x y n)
 	(lets
 		((cell (cell-of x y))
-		 (bad (collisions sudoku (ref *peers* cell) n)))
+		 (bad (collisions sudoku (get *peers* cell 'bug) n)))
 		(cond
 			((bound? sudoku cell)
 				False)
@@ -221,15 +223,17 @@
 				(put sudoku cell n))
 			(else False))))
 
-(define mid-row    "+---+---+---+")
-(define normal-row "|   |   |   |")
+(define top-row    "┌───┬───┬───┐")
+(define mid-row    "├───┼───┼───┤")
+(define num-row    "│   │   │   │")
+(define bot-row    "└───┴───┴───┘")
 
 (define x-start 3)
 (define y-start 2)
 
 (define (plot-cell x y val)
 	(lets
-		((tx (+ (+ x x-start) (div (- x 1) 3)))
+		((tx (+ (+ x x-start) (+ 1 (div x 3))))
 	 	 (ty (+ (+ y y-start) (+ 1 (div y 3)))))
 		(cond
 			((eq? val 'cursor)
@@ -243,9 +247,14 @@
 	(for-each
 		(λ (y) 
 			(set-cursor x-start (+ y y-start))
-			(display (if (= (rem y 4) 0) mid-row normal-row)))
+			(display 
+				(cond
+					((= y 0) top-row)
+					((= y 12) bot-row)
+					((= 0 (rem y 4)) mid-row)
+					(else num-row))))
 		(iota 0 1 13))
-	(for False (iota 1 1 10)
+	(for False (iota 0 1 9)
 		(λ (_ x)
 			(for False (iota 0 1 9)
 				(λ (_ y)
@@ -355,9 +364,9 @@
 				((down? val)
 					(play-sudoku sudo in x (min 8 (+ y 1)) prev))
 				((left? val)
-					(play-sudoku sudo in (max 1 (- x 1)) y prev))
+					(play-sudoku sudo in (max 0 (- x 1)) y prev))
 				((right? val)
-					(play-sudoku sudo in (min 9 (+ x 1)) y prev))
+					(play-sudoku sudo in (min 8 (+ x 1)) y prev))
 				((eq? (ref val 1) 'key)
 					(lets ((sudo x y prev (apply-action sudo x y prev (ref val 2))))
 						(if sudo
@@ -374,8 +383,8 @@
 					(play-sudoku sudo in x y prev))))))
 
 (define (string->sudoku str)
-	(for empty-sudoku 
-		(zip cons (iota 1 1 82) (string->runes str))
+	(for False
+		(zip cons (cells) (string->runes str))
 		(λ (sudoku node)
 			(lets ((cell char node))
 				(cond
@@ -450,7 +459,7 @@ http://code.google.com/p/olgame/")
 			1)))
 
 
-(sudoku-entry '(sudoku "."))
+(sudoku-entry '(sudoku "-s" "123456789"))
 
 (dump sudoku-entry "sudoku.c")
 
