@@ -2,16 +2,14 @@
 ;;; Sudoku 
 ;;; 
 
-; - rename to moniku
-;	+ add support to latin squares and other variants
-;- level generation
-;		+ at build time, separate files or on the fly?
-;		+ where, if anywhere, to store the results?
-;			- ah, $ sudoku --make-levels --difficulty easy --count 100 > my-own-levels.sdk
-;			- and keep the format such that when levels are solved the time can be saved there
-;			- when a level file is not given, just generate a fresh level 
-; - [h]elp = show current status (unsolvable, solvable, hard step but solvable, many solutions)
-; - [H]ALP = show next most restricted move and it's options
+; - sudoku - alternative sizes
+; - add alternative rules (latin squares etc) and rename to moniku
+; - abstract out for a generic solver
+;		- eliminate -> areas and peers 
+;		- puzzle init -> all-options
+;		- print-puzzle -> needs the type (sudoku latin-square ...)
+;	- ie, puzzle is
+;		#(type areas peers bound moves)
 
 (import lib-lazy)
 
@@ -72,28 +70,16 @@
 	(for False opts
 		(λ (soln move) (or soln (fn move)))))
 
-(define (show-state state)
-	(for-each
-		(λ (pos)
-			(let ((node (get state pos rasa)))
-				(cond
-					((number? node)
-						(display node))
-					((null? (cdr node))
-						(display (car node)))
-					(else 
-						(display ".")))))
-		(iota 1 1 82))
-	(print ""))
+; check that each area has at least one cell which can have a
+; given value, and if there is only one such cell, set it.
 
-(define (check-area update board area this)
+(define (check-availability update board area this)
 	(if board
 		(let 
 			((options 
 				(keep (λ (pos) (has? (get board pos rasa) this)) area)))
 			(cond
-				((eq? options null)
-					False)
+				((eq? options null) False)
 				((eq? (cdr options) null)
 					(update board (car options) this))
 				(else board)))
@@ -102,29 +88,23 @@
 (define (eliminate update board pos val)
 	(if board
 		(let ((this (get board pos rasa)))
-			(cond
-				((eq? this val)
-					False)
-				((pair? this)
-					(if (has? this val)
-						(fold
-							(λ (board area)
-								(check-area update board area val))			; all areas must potentially have the value
-							(lets 	
-								((this (remove this val))
-								 (board (put board pos this)))
-								(cond
-									((null? this) False) ; no options 
-									((null? (cdr this)) ; only one
-										(fold
-											(λ (board pos) 
-												(eliminate update board pos (car this)))
-											board (get *peers* pos 'bug)))					; no peer can have the same value
-									(else 
-										board)))
-							(get *areas* pos 'bug))
-						board))
-				(else board)))
+			(if (has? this val)
+				(fold
+					(λ (board area)
+						(check-availability update board area val))			; all areas must potentially have the value
+					(lets 	
+						((this (remove this val))
+						 (board (put board pos this)))
+						(cond
+							((null? this) False) ; no options 
+							((null? (cdr this)) ; only one option left
+								(fold
+									(λ (board pos) 
+										(eliminate update board pos (car this)))
+									board (get *peers* pos 'bug)))					; no peer can have the same value
+							(else board)))
+					(get *areas* pos 'bug))
+				board))
 		False))
 
 (define (update state pos val)
@@ -238,11 +218,11 @@
 ;;; Playing part
 ;;;
 
+; the board are here ffs with cell -> number and 'bound -> ff of values given in the puzzle.
 
 (import lib-vt)
 
 (define (cell-of x y) (+ (* y 9) x))
-; off by one occasionally -> change indexing, not this
 (define (coords-of cell) (values (rem cell 9) (div cell 9)))
 
 (define (collisions sudo poss val)
@@ -266,7 +246,9 @@
 				False)
 			((null? bad)
 				(put sudoku cell n))
-			(else False))))
+			(else 
+				; could highlight the collisions 
+				False))))
 
 (define top-row    "┌───┬───┬───┐")
 (define mid-row    "├───┼───┼───┤")
@@ -360,7 +342,6 @@
 							(if (= (length opts) 1)
 								(print* (list "This must logically be " (car opts) "."))
 								(print* (list "This is one of " opts ".")))
-							; (set-cursor 1 17) (show-state res) ; cheat
 							(values x y))
 						(begin
 							(print "You are done.")
@@ -479,14 +460,13 @@ A better one is hopefully already available at http://code.google.com/p/olgame/"
         (help "-h" "--help")
         (version "-V" "--version")
 		  (level "-s" "--sudoku" has-arg comment "play a specific level, like 123...456")
+		  (solve "-S" "--solve" comment "solve the given sudoku (requires -s)")
         )))
 
 (define (lets-sudoku level)
 	(raw-console)
 	(clear-screen)
-	(play-sudoku 
-		level
-		(port->byte-stream 0) 1 0 null)
+	(play-sudoku level (port->byte-stream 0) 1 0 null)
 	(normal-console))
 
 (define (sudoku-entry vm-args)
@@ -515,7 +495,13 @@ A better one is hopefully already available at http://code.google.com/p/olgame/"
 									((not sudo) (print "Bad sudoku.") 1)
 									((not node) (print "Inconsistent sudoku.") 2)
 									((not soln) (print "Unsolvable sudoku.") 3)
+									((get dict 'solve False)
+										(for-each (λ (p) (display (car (get soln p '("?" . 0))))) (cells))
+										(print ""))
 									(else (lets-sudoku sudo))))))
+					((get dict 'solve False)
+						(print "Give sudoku to solve with -s")
+						4)
 					(else 
 						(lets ((rst sudoku (make-sudoku (time 1))))
 							(lets-sudoku sudoku))))))
