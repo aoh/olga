@@ -27,6 +27,7 @@ fail to remember where, and what it was called.
 	(cl-rules 
 		`((about "-A" "--about")
 		  (help  "-h" "--help")
+		  (clean  "-c" "--clean" comment "experiment with a clean start")
 		  (size  "-s" "--size" comment "board size" default "5" cook ,string->number))))
 
 (define (flip-cell size)
@@ -160,10 +161,14 @@ fail to remember where, and what it was called.
 					(play board (cdr in) x y))))
 		(else (play board (in) x y))))
 
-(define (lets-flip size)
+(define (lets-flip size args)
 	(raw-console)
 	(clear-screen)
-	(let ((result (play (new-board (max size 3)) (vt-events 0) 0 0)))
+	(lets
+		((size (max size 3))
+		 (size (min size 30))
+		 (board (if (get args 'clean False) (empty-board size) (new-board size)))
+		 (result (play board (vt-events 0) 0 0)))
 		(normal-console)
 		(clear-screen)
 		(set-cursor 1 1)
@@ -181,11 +186,11 @@ fail to remember where, and what it was called.
 						(print usage-text)
 						(print-rules command-line-rules))
 					((get dict 'size False) =>
-						(λ (n) (lets-flip n)))
+						(λ (n) (lets-flip n dict)))
 					(else
 						(print "bug")))))
 		1))
 
-; (flip '(flipper "-s" "10"))
+;(flip '(flipper "-s" "10"))
 
 (dump flip "flip.c")
