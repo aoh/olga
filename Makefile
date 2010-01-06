@@ -2,7 +2,7 @@
 CFLAGS=-Wall -O2
 PREFIX=$(HOME)
 
-everything: bin/five bin/soko bin/sudoku
+everything: bin/five bin/soko bin/sudoku bin/flip
 
 ### gomoku 
 
@@ -27,6 +27,14 @@ bin/sudoku: sudoku.c
 
 sudoku.c: sudoku.scm bin/owl
 	bin/owl sudoku.scm
+
+### flip
+
+bin/flip: flip.c 
+	gcc $(CFLAGS) -o bin/flip flip.c
+
+flip.c: flip.scm bin/owl
+	bin/owl flip.scm
 
 ### owl (needed for scm -> c phase)
 
