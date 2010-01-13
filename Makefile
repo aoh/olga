@@ -2,48 +2,61 @@
 CFLAGS=-Wall -O2
 PREFIX=$(HOME)
 
-everything: bin/five bin/soko bin/sudoku bin/flip
+everything: bin/five bin/soko bin/sudoku bin/flip bin/othello
 
 ### gomoku 
 
 bin/five: five.c 
 	gcc $(CFLAGS) -o bin/five five.c
 
-five.c: five.scm bin/owl
-	bin/owl five.scm
+five.c: five.scm owl
+	./owl five.scm
 
 #### sokoban
 
 bin/soko: soko.c 
 	gcc $(CFLAGS) -o bin/soko soko.c
 
-soko.c: soko.scm bin/owl
-	bin/owl soko.scm
+soko.c: soko.scm owl
+	./owl soko.scm
 
 ### sudoku
 
 bin/sudoku: sudoku.c 
 	gcc $(CFLAGS) -o bin/sudoku sudoku.c
 
-sudoku.c: sudoku.scm bin/owl
-	bin/owl sudoku.scm
+sudoku.c: sudoku.scm owl
+	./owl sudoku.scm
 
 ### flip
 
 bin/flip: flip.c 
 	gcc $(CFLAGS) -o bin/flip flip.c
 
-flip.c: flip.scm bin/owl
-	bin/owl flip.scm
+flip.c: flip.scm owl
+	./owl flip.scm
+
+### othello
+
+bin/othello: othello.c 
+	gcc $(CFLAGS) -o bin/othello othello.c
+
+othello.c: othello.scm owl
+	./owl othello.scm
 
 ### owl (needed for scm -> c phase)
 
-bin/owl: owl.c
-	gcc $(CFLAGS) -o bin/owl owl.c
+owl: owl.c
+	# no need to put in bin/
+	gcc $(CFLAGS) -o owl owl.c
 
 owl.c: owl.c.gz
 	gzip -c -d owl.c.gz > owl.c
 
-install:
+install: everything # error, also copies owl
 	mkdir -p $(PREFIX)/bin
-	cp bin/* $(PREFIX)/bin
+	cp -i bin/* $(PREFIX)/bin
+
+clean: 
+	rm owl *.c bin/*
+
