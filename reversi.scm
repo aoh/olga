@@ -333,6 +333,7 @@ You are human. Pres s to skip a move.
 
 (define ai-easy (fixed-ply-player 2))
 (define ai-normal (fixed-ply-player 4))
+(define ai-hard (fixed-ply-player 6))
 
 (define players
 	(list->ff
@@ -341,7 +342,9 @@ You are human. Pres s to skip a move.
 			(cons stupid "stupid") 
 			(cons human-player "human")
 			(cons ai-easy "easy") 
-			(cons ai-normal "normal"))))
+			(cons ai-normal "normal")
+			(cons ai-hard "hard")
+			)))
 
 (define (choose-player str)
 	(let ((choice (ff-fold (λ (taken op name) (if (equal? name str) op taken)) False players)))
