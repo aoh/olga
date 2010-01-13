@@ -1,11 +1,11 @@
 ;;;
-;;; othello - it's.. othello
+;;; reversi - it's like othello
 ;;;
 
-(define usage-text "Usage: flip [args]")
+(define usage-text "Usage: reversi [args]")
 
-(define about-othello
-"othello - a game of othello
+(define about-reversi
+"reversi - a game of reversi
 this game is from http://code.google.com/p/olgame
 
 Use the arrow keys move and space to enter your move.
@@ -34,6 +34,9 @@ You are human. Pres s to skip a move.
 
 (define cells (let ((max (* s s))) (λ () (iota 0 1 max))))
 
+(define (position-cursor x y)
+	(set-cursor (+ xo (* x 2)) (+ yo y)))
+
 (define (print-board board x y)
 	(clear-screen)
 	(for 42 (iota 0 1 s)
@@ -42,9 +45,18 @@ You are human. Pres s to skip a move.
 			(for 42 (iota 0 1 s)
 				(λ (_ x)
 					(display (render-cell (get board (+ x (* y s)) 'blank)))))))
-	(set-cursor (+ xo (* x 2)) (+ yo y))
+	(position-cursor x y)
 	(flush-port 1))
 
+(define (print-moves poss color)
+	(let ((marker (if (eq? color 'black) "•" "◦")))
+		(for-each
+			(λ (pos)
+				(set-cursor (+ xo (* (rem pos s) 2)) (+ yo (div pos s)))
+				(display marker))
+			poss)
+		(flush-port 1)))
+	
 (define (move-focus board x y dir)
 	(cond
 		((eq? dir 'up) (values x (max 0 (- y 1))))
@@ -105,36 +117,6 @@ You are human. Pres s to skip a move.
 (define (blank? board pos)
 	(eq? 'blank (get board pos 'blank)))
 
-(define (valid-move? board x y color)
-	(and (blank? board (xy->pos x y))
-		(not (null? (flips-of board x y color)))))
-
-(define (human-player board in x y color)
-	(print-board board x y)
-	(cond
-		((null? in)
-			(print "bye"))
-		((pair? in)
-			(tuple-case (car in)
-				((arrow dir)
-					(lets ((x y (move-focus board x y dir)))
-						(human-player board (cdr in) x y color)))
-				((key k)
-					(case k
-						((32) ; [space] move here (if applicable)
-							(if (valid-move? board x y color)
-								(values True (cdr in) x y)
-								(human-player board (cdr in) x y color)))
-						((113) ; [q]uit
-							(values False (cdr in) 'quit 'quit))
-						((115) ; [s]kip
-							(values False x y))
-						(else
-							(human-player board (cdr in) x y color))))
-				(else
-					(human-player board (cdr in) x y color))))
-		(else (human-player board (in) x y color))))
-
 (define (valid-moves board color)
 	(fold
 		(lambda (ok pos)
@@ -145,6 +127,44 @@ You are human. Pres s to skip a move.
 						(cons (cons pos flips) ok)))
 				ok))
 		null (cells)))
+
+(define (valid-move? board x y color)
+	(and (blank? board (xy->pos x y))
+		(not (null? (flips-of board x y color)))))
+
+(define (human-player board in x y color)
+	(let ((moves (map car (valid-moves board color))))
+		(if (null? moves)
+			(values False x y)
+			(let loop ((in in) (x x) (y y))
+				(print-board board x y)
+				(print-moves moves color)
+				(position-cursor x y)
+				(flush-port 1)
+				(cond
+					((null? in)
+						(print "bye"))
+					((pair? in)
+						(tuple-case (car in)
+							((arrow dir)
+								(lets ((x y (move-focus board x y dir)))
+									(loop (cdr in) x y)))
+							((key k)
+								(case k
+									((32) ; [space] move here (if applicable)
+										(if (valid-move? board x y color)
+											(values True (cdr in) x y)
+											(loop (cdr in) x y)))
+									((113) ; [q]uit
+										(values False (cdr in) 'quit 'quit))
+									((115) ; [s]kip
+										(values False x y))
+									(else
+										(loop (cdr in) x y))))
+							(else
+								(loop (cdr in) x y))))
+					(else (loop (in) x y)))))))
+
 
 ;;; artificial stupidity begins
 
@@ -413,7 +433,7 @@ You are human. Pres s to skip a move.
 					(sleep 500)
 					(loop status wp bp))))))
 
-(define (play-othello args)
+(define (play-reversi args)
 	(raw-console)
 	(lets
 		((board empty-board) 
@@ -426,22 +446,22 @@ You are human. Pres s to skip a move.
 		(print "Bye bye.")
 		0))
 
-(define (othello args)
+(define (reversi args)
 	(or 
 		(process-arguments (cdr args) command-line-rules usage-text
 			(λ (dict others)
 				(cond
 					((get dict 'about False) 
-						(print about-othello))
+						(print about-reversi))
 					((get dict 'help False) 
 						(print usage-text)
 						(print-rules command-line-rules))
 					(else
-						(play-othello dict)))))
+						(play-reversi dict)))))
 		1))
 
 
-; (othello '("othello" "-w" "normal" "-b" "human"))
+; (reversi '("reversi" "-w" "normal" "-b" "human"))
 
-(dump othello "othello.c")
+(dump reversi "reversi.c")
 
