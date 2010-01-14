@@ -2,7 +2,7 @@
 CFLAGS=-Wall -O2
 PREFIX=$(HOME)
 
-everything: bin/five bin/soko bin/sudoku bin/flip bin/reversi
+everything: bin/five bin/soko bin/sudoku bin/flip bin/reversi bin/ataxx
 
 ### gomoku 
 
@@ -43,6 +43,14 @@ bin/reversi: reversi.c
 
 reversi.c: reversi.scm owl
 	./owl reversi.scm
+
+### ataxx
+
+bin/ataxx: ataxx.c 
+	gcc $(CFLAGS) -o bin/ataxx ataxx.c
+
+ataxx.c: ataxx.scm owl
+	./owl ataxx.scm
 
 ### owl (needed for scm -> c phase)
 
