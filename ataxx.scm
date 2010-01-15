@@ -189,16 +189,32 @@ fixme: rules and history here.
 
 ;;; artificial stupidity begins
 
+; board → int (to be used as random seed)
+(define (board-seed board)
+	(ff-fold
+		(λ (seed pos val)
+			(if (eq? pos black) (* seed 2) (+ seed 1)))
+		(time 1) board))
+
+(define (make-move board pos player)
+	(for (put board pos player) (get neighbours pos null)
+		(λ (board pos) 
+			(if (get board pos False)
+				(put board pos player)
+				board))))
+
+(define (make-jump board from to player)
+	(make-move (del board from) to player))
+
+
+
 ; imbecile - play randomly 
 (define-module lib-ai-imbecile
 	(export ai-imbecile)
 	(import lib-random)
 
-	(define (board-seed board)
-		(ff-fold
-			(λ (seed pos val)
-				(if (eq? pos black) (* seed 2) (+ seed 1)))
-			(time 1) board))
+	(define (evaluate-move board)
+		(λ (move tail) 42))
 
 	(define (ai-imbecile board in last color)
 		(lets
@@ -213,8 +229,78 @@ fixme: rules and history here.
 					 (targets (append moves (append moves jumps)))
 					 (rst n (rand seed (length targets)))
 					 (target (lref targets n)))
-					(values from target in))))))
+					(values from target in)))))
+)
 
+
+; a shared evaluation function for ease and search guiding. TEEEEMP.
+
+(define (eval-board board color)
+	(ff-fold
+		(λ (score pos val)
+			(if (eq? val color) (+ score 1) (- score 1)))
+		0 board))
+
+; easy - another O(1) nondeterministic player, but using a simple heuristic. 
+; this mainly exists to benchmark against better ones. 
+
+(define-module lib-ai-easy
+	(export ai-easy)
+	(import lib-random)
+
+	(define (grab-move ps n)
+		(if (null? ps)
+			(error "could not grab move: " n)
+			(let ((this (ref (car ps) 3)))
+				(if (<= n this)
+					(car ps)
+					(grab-move (cdr ps) (- n this))))))
+
+	(define (select-move proposals rst)
+		(if (null? proposals)
+			(tuple False False 0)
+			(lets
+				((min (+ 1 (abs (fold (λ (lead prop) (min lead (ref prop 3))) 0 proposals))))
+				 (proposals
+					(map (λ (prop) (set prop 3 (+ (ref prop 3) min))) proposals))
+				 (total (fold  (λ (sum x) (+ sum (ref x 3))) 0 proposals))
+				 (rst n (rand rst total)))
+				(grab-move proposals n))))
+
+	(define (eval-move board color)
+		(λ (tail move)
+			(lets ((source moves jumps move))
+				(fold
+					(λ (tail target)
+						(cons
+							(tuple source target
+								(eval-board (make-move board target color) color))
+							tail))
+					(fold 
+						(λ (tail jump-target)
+							(cons
+								(tuple source jump-target
+									(eval-board (make-jump board source jump-target color) color))
+								tail))
+						tail jumps)
+					moves))))
+
+	; look forward one move and see how good the situations are, and make 
+	; a weighted move to the better half of the moves
+
+	(define (ai-easy board in last color)
+		(lets
+			((opts (valid-moves board color))
+			 (seed (board-seed board))
+			 (proposals (fold (eval-move board color) null opts))
+			 (proposals (sort (λ (a b) (> (ref a 3) (ref b 3))) proposals))
+			 (proposals (take proposals (div (length proposals) 2)))
+			 (move (select-move proposals seed))
+			 (from to score move))
+			(values from to in)))
+)
+
+(import lib-ai-easy ai-easy)
 (import lib-ai-imbecile ai-imbecile)
 
 (define empty-board 
@@ -229,6 +315,7 @@ fixme: rules and history here.
 	(list->ff
 		(list 
 			(cons ai-imbecile "imbecile") 
+			(cons ai-easy "easy")
 			(cons human-player "human")
 			)))
 
@@ -251,7 +338,7 @@ fixme: rules and history here.
 		`((about "-A" "--about")
 		  (help  "-h" "--help")
 		  (black "-b" "--black" cook ,choose-player default "human" comment "choose black player")
-		  (white "-w" "--white" cook ,choose-player default "imbecile" comment "choose white player")
+		  (white "-w" "--white" cook ,choose-player default "easy" comment "choose white player")
 		  )))
 
 (define (board-full? board)
@@ -274,16 +361,6 @@ fixme: rules and history here.
 	(show "Player disqualified due to " reason)
 	(sleep 1000)
 	(opponent-of player))
-
-(define (make-move board pos player)
-	(for (put board pos player) (get neighbours pos null)
-		(λ (board pos) 
-			(if (get board pos False)
-				(put board pos player)
-				board))))
-
-(define (make-jump board from to player)
-	(make-move (del board from) to player))
 
 ; -> black | white | draw | quit
 (define (match board in pos next player opponent)
@@ -349,7 +426,9 @@ fixme: rules and history here.
 					(set-cursor 1 1)
 					(show "outcomes: "
 						(ff-fold (lambda (out player score) (cons (cons (name-of player) score) out)) null status))
-					(sleep 500)
+					;(interact 0 'input)
+					(flush-port 1)
+					(sleep 1000)
 					(loop status wp bp))))))
 
 (define (play-ataxx args)
@@ -379,8 +458,8 @@ fixme: rules and history here.
 						(play-ataxx dict)))))
 		1))
 
-
-; (ataxx '("ataxx"))
+; (ataxx '("ataxx" "-b" "human" "-w" "easy"))
+; (ataxx '("ataxx" "-b" "easy" "-w" "imbecile"))
 
 (dump ataxx "ataxx.c")
 
