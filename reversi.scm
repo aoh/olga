@@ -277,7 +277,6 @@ You are human. Pres s to skip a move.
 	(define lose-score -65535)
 
 	(define (evaluate-game-over board me)
-		(print "EVAL GAME OVER")
 		(let ((winner (pick-winner board)))
 			(cond
 				((eq? winner me) win-score)

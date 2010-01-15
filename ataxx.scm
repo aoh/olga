@@ -124,16 +124,21 @@ fixme: rules and history here.
 		(blanks-in board (get neighbours pos 'bug) null)
 		(blanks-in board (get jumps pos 'bug) null)))
 
-(define (valid-moves board player)
+(define (valid-moves board player) ; → (#(jump|clone from to) ...)
 	(ff-fold
-		(λ moves pos val
+		(λ (moves pos val)
 			(if (eq? val player)
-				(lets ((clones jumps (valid-moves-of board pos)))
-					(if (and (null? clones) (null? jumps))
-						moves
-						(cons (tuple pos clones jumps) moves)))
+				(lets
+					((moves 
+						(for moves (blanks-in board (get neighbours pos null) null)
+							(λ (tail move) (cons (tuple 'clone pos move) tail))))
+					 (moves 
+						(for moves (blanks-in board (get jumps pos null) null)
+							(λ (tail move) (cons (tuple 'jump pos move) tail)))))
+					moves)
 				moves))
 		null board))
+
 
 (define (opponent-of x) (if (eq? x black) white black))
 
@@ -200,15 +205,16 @@ fixme: rules and history here.
 	(for (put board pos player) (get neighbours pos null)
 		(λ (board pos) 
 			(if (get board pos False)
-				(put board pos player)
+				(fupd board pos player)
 				board))))
 
 (define (make-jump board from to player)
 	(make-move (del board from) to player))
 
+;;;
+;;; AI - imbecile, play randomly
+;;;
 
-
-; imbecile - play randomly 
 (define-module lib-ai-imbecile
 	(export ai-imbecile)
 	(import lib-random)
@@ -224,12 +230,8 @@ fixme: rules and history here.
 				(values False False in)
 				(lets 
 					((rst n (rand seed (length opts)))
-					 (move (lref opts n))
-					 (from moves jumps move)
-					 (targets (append moves (append moves jumps)))
-					 (rst n (rand seed (length targets)))
-					 (target (lref targets n)))
-					(values from target in)))))
+					 (move (lref opts n)))
+					(values (ref move 2) (ref move 3) in)))))
 )
 
 
@@ -241,10 +243,13 @@ fixme: rules and history here.
 			(if (eq? val color) (+ score 1) (- score 1)))
 		0 board))
 
-; easy - another O(1) nondeterministic player, but using a simple heuristic. 
-; this mainly exists to benchmark against better ones. 
+
+;;;
+;;; AI - easy, check current moves and pick a resonably good one using a simple heuristic
+;;;
 
 (define-module lib-ai-easy
+
 	(export ai-easy)
 	(import lib-random)
 
@@ -269,21 +274,13 @@ fixme: rules and history here.
 
 	(define (eval-move board color)
 		(λ (tail move)
-			(lets ((source moves jumps move))
-				(fold
-					(λ (tail target)
-						(cons
-							(tuple source target
-								(eval-board (make-move board target color) color))
-							tail))
-					(fold 
-						(λ (tail jump-target)
-							(cons
-								(tuple source jump-target
-									(eval-board (make-jump board source jump-target color) color))
-								tail))
-						tail jumps)
-					moves))))
+			(tuple-case move
+				((jump from to)
+					(cons (tuple from to (eval-board (make-jump board from to color) color)) tail))
+				((clone from to) 
+					(cons (tuple from to (eval-board (make-move board to color) color)) tail))
+				(else
+					(error "funny move: " move)))))
 
 	; look forward one move and see how good the situations are, and make 
 	; a weighted move to the better half of the moves
@@ -300,8 +297,68 @@ fixme: rules and history here.
 			(values from to in)))
 )
 
+
+;;;
+;;; AI - normal, using a run-of-the-mill minimax with α-β, naive eval
+;;;
+
+(define-module lib-ai-normal
+
+	(export fixed-ply-player)
+
+	(define no-move (tuple 'move False False))
+
+	(define win   65535)
+	(define lose -65535)
+
+	(define (evaluate-final board color)
+		(let ((count (ff-fold (λ (sum pos val) (+ sum (if (eq? val color) 1 -1))) 0 board)))
+			(cond
+				((> count 0) win)
+				((eq? count 0) 0)
+				(else lose))))
+
+	(define (do-move board move color)
+		(lets ((type from to move))
+			(if (eq? type 'jump)
+				(make-jump board from to color)
+				(make-move board to color))))
+
+	(define (plan-ahead board color α β ply)
+		(if (= ply 0)
+			(values (eval-board board color) no-move) ; ← fixme, temp eval
+			(let ((opts (valid-moves board color)))
+				(if (null? opts)
+					(let ((oopts (valid-moves board (opponent-of color))))
+						(if (null? oopts)
+							(values (evaluate-final board color) no-move)
+							(lets ((oscore omove (plan-ahead board (opponent-of color) (- 0 β) (- 0 α) ply)))
+								(values (- 0 oscore) no-move))))
+					(let loop ((opts opts) (α α) (best (car opts)))
+						(cond
+							((null? opts) (values α best))
+							((< α β)
+								(lets
+									((os om (plan-ahead (do-move board (car opts) color)
+													(opponent-of color) (- 0 β) (- 0 α) (- ply 1)))
+									 (score (- 0 os)))
+									(if (> score α)
+										(loop (cdr opts) score (car opts))
+										(loop (cdr opts) α best))))
+							(else (values α best))))))))
+
+	(define (fixed-ply-player ply)
+		(λ (board in last color)
+			(lets ((score move (plan-ahead board color lose win ply)))
+				(values (ref move 2) (ref move 3) in))))
+)
+
+(import lib-ai-normal fixed-ply-player)
 (import lib-ai-easy ai-easy)
 (import lib-ai-imbecile ai-imbecile)
+
+(define ai-normal (fixed-ply-player 2))
+(define ai-hard   (fixed-ply-player 3)) ; in the land of the blind...
 
 (define empty-board 
 	(list->ff
@@ -317,6 +374,8 @@ fixme: rules and history here.
 			(cons ai-imbecile "imbecile") 
 			(cons ai-easy "easy")
 			(cons human-player "human")
+			(cons ai-normal "normal")
+			(cons ai-hard "hard")
 			)))
 
 (define (choose-player str)
@@ -338,7 +397,7 @@ fixme: rules and history here.
 		`((about "-A" "--about")
 		  (help  "-h" "--help")
 		  (black "-b" "--black" cook ,choose-player default "human" comment "choose black player")
-		  (white "-w" "--white" cook ,choose-player default "easy" comment "choose white player")
+		  (white "-w" "--white" cook ,choose-player default "normal" comment "choose white player")
 		  )))
 
 (define (board-full? board)
@@ -359,7 +418,7 @@ fixme: rules and history here.
 
 (define (disqualify player reason)
 	(show "Player disqualified due to " reason)
-	(sleep 1000)
+	(sleep 3000)
 	(opponent-of player))
 
 ; -> black | white | draw | quit
@@ -389,7 +448,7 @@ fixme: rules and history here.
 										(match (make-jump board move to next) in to
 											(opponent-of next) opponent player))
 									(else
-										(disqualify next "an erronous move target.")))))
+										(disqualify next (list "an erronous move target from " move " to " to))))))
 						((eq? move 'quit)
 							'quit)
 						(else
@@ -416,7 +475,6 @@ fixme: rules and history here.
 					((eq? res white) (put status wp (+ 1 (get status wp 0))))
 					((eq? res 'draw) (put status 'draw (+ 1 (get status 'draw 0))))
 					(else status))))
-			(show "res is " res)
 			(if (eq? res 'quit)
 				(begin
 					(print (del status res))
@@ -458,7 +516,7 @@ fixme: rules and history here.
 						(play-ataxx dict)))))
 		1))
 
-; (ataxx '("ataxx" "-b" "human" "-w" "easy"))
+; (ataxx '("ataxx" "-b" "normal" "-w" "human"))
 ; (ataxx '("ataxx" "-b" "easy" "-w" "imbecile"))
 
 (dump ataxx "ataxx.c")
