@@ -168,6 +168,7 @@ You are human. Pres s to skip a move.
 
 ;;; artificial stupidity begins
 
+
 ; imbecile - play randomly 
 (define-module lib-ai-imbecile
 

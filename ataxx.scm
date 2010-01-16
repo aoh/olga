@@ -2,6 +2,19 @@
 ;;; ataxx
 ;;;
 
+; todo
+;	- eye candy, like in the rest of the games
+;	- cloning moves can result in the same board
+;		+ drop them in unique-valid-moves
+;	- benchmark how much faster bit boards would be
+;	- resource bounded version of the search
+;	- saner evaluation function
+;		+ possible improvements
+;			o bonus to surrounded cells
+;			o attack coverage? probably less useful than an extra ply..
+; 	- alternative starting configurations and board layouts
+
+
 ; started with basic gameplay. a saner ai next.
 
 (define usage-text "Usage: ataxx [args]")
@@ -398,6 +411,7 @@ fixme: rules and history here.
 		  (help  "-h" "--help")
 		  (black "-b" "--black" cook ,choose-player default "human" comment "choose black player")
 		  (white "-w" "--white" cook ,choose-player default "normal" comment "choose white player")
+		  (matches "-n" "--matches" default "1" cook ,string->number check ,(λ x (and (number? x) (> x 0))))
 		  )))
 
 (define (board-full? board)
@@ -464,30 +478,49 @@ fixme: rules and history here.
 		"draw"
 		(get players player "mysterious")))
 
-(define (start-match black-player white-player)
-	(let loop ((status False) (bp black-player) (wp white-player))
-		(lets
-			((res 
-				(match empty-board (vt-events 0) 0 black bp wp))
-			 (status
-				(cond
-					((eq? res black) (put status bp (+ 1 (get status bp 0))))
-					((eq? res white) (put status wp (+ 1 (get status wp 0))))
-					((eq? res 'draw) (put status 'draw (+ 1 (get status 'draw 0))))
-					(else status))))
-			(if (eq? res 'quit)
-				(begin
-					(print (del status res))
-					0)
-				(begin
-					(clear-screen)
-					(set-cursor 1 1)
-					(show "outcomes: "
-						(ff-fold (lambda (out player score) (cons (cons (name-of player) score) out)) null status))
-					;(interact 0 'input)
-					(flush-port 1)
-					(sleep 1000)
-					(loop status wp bp))))))
+(define (show-match-results res)
+	(lets
+		((res (ff->list res))
+		 (res (sort (λ (a b) (> (cdr a) (cdr b))) res)))
+		(clear-screen)
+		(set-cursor 1 1)
+		(print "Results: ")
+		(for-each
+			(λ (node)
+				(lets ((winner count node))
+					(print* (list " - " (name-of winner) ": " count))))
+			res)
+		0))
+
+(define (start-match black-player white-player games)
+	(let loop ((status False) (bp black-player) (wp white-player) (games games))
+		(if (> games 0)
+			(lets
+				((res 
+					(match empty-board (vt-events 0) 0 black bp wp))
+				 (status
+					(cond
+						((eq? res black) (put status bp (+ 1 (get status bp 0))))
+						((eq? res white) (put status wp (+ 1 (get status wp 0))))
+						((eq? res 'draw) (put status 'draw (+ 1 (get status 'draw 0))))
+						(else status))))
+				(if (eq? res 'quit)
+					(begin
+						(print (del status res))
+						0)
+					(begin
+						(clear-screen)
+						(set-cursor 1 1)
+						(show "outcomes: "
+							(ff-fold (lambda (out player score) (cons (cons (name-of player) score) out)) null status))
+						;(interact 0 'input)
+						(flush-port 1)
+						(sleep 1000)
+						(loop status wp bp (- games 1)))))
+			(begin
+				(normal-console)
+				(show-match-results status)))))
+				
 
 (define (play-ataxx args)
 	(raw-console)
@@ -495,11 +528,8 @@ fixme: rules and history here.
 		((board empty-board) 
 		 (white (get args 'white 'bug))
 		 (black (get args 'black 'bug))
-		 (result (start-match black white)))
+		 (result (start-match black white (get args 'matches 1))))
 		(normal-console)
-		(clear-screen)
-		(set-cursor 1 1)
-		(print "Bye bye.")
 		0))
 
 (define (ataxx args)
