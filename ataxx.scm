@@ -3,11 +3,7 @@
 ;;;
 
 ; todo
-;	- eye candy, like in the rest of the games
-;	- cloning moves can result in the same board
-;		+ drop them in unique-valid-moves
 ;	- benchmark how much faster bit boards would be
-;	- resource bounded version of the search
 ;	- saner evaluation function
 ;		+ possible improvements
 ;			o bonus to surrounded cells
@@ -131,10 +127,16 @@ fixme: rules and history here.
 				out 
 				(cons pos out)))))
 
-(define (valid-moves-of board pos)
-	(values
-		(blanks-in board (get neighbours pos 'bug) null)
-		(blanks-in board (get jumps pos 'bug) null)))
+; a -> b and c -> b result in equal boards (for moves)
+
+(define (remove-duplicates moves)
+	(let loop ((moves moves) (targets False) (out null))
+		(if (null? moves)
+			out
+			(let ((target (ref (car moves) 3)))
+				(if (get targets target False)
+					(loop (cdr moves) targets out)
+					(loop (cdr moves) (put targets target True) (cons (car moves) out)))))))
 
 (define (valid-moves board player) ; → (#(jump|clone from to) ...)
 	(ff-fold
@@ -144,6 +146,7 @@ fixme: rules and history here.
 					((moves 
 						(for moves (blanks-in board (get neighbours pos null) null)
 							(λ (tail move) (cons (tuple 'clone pos move) tail))))
+					 (moves (remove-duplicates moves))
 					 (moves 
 						(for moves (blanks-in board (get jumps pos null) null)
 							(λ (tail move) (cons (tuple 'jump pos move) tail)))))
@@ -151,20 +154,10 @@ fixme: rules and history here.
 				moves))
 		null board))
 
-
 (define (opponent-of x) (if (eq? x black) white black))
 
 (define (blank? board pos)
 	(eq? False (get board pos False)))
-
-(define (blank? board pos)
-	(eq? 'blank (get board pos 'blank)))
-
-(define (valid-move? board source pos)
-	(cond
-		((has? (get neighbours source null) pos) True)
-		((has? (get jumps source null) pos) True)
-		(else False)))
 
 (define (find-move moves source pos)
 	(call/cc (λ (ret)
@@ -215,10 +208,7 @@ fixme: rules and history here.
 			(make-jump board from to color)
 			(make-move board to color))))
 
-
-;;;
-;;; Game-independent AI stuff
-;;;
+;;; Make AI players
 
 ,r "ai.scm"
 
@@ -228,6 +218,8 @@ fixme: rules and history here.
 (define ai-easy (make-simple-player valid-moves do-move eval-board 2))
 (define ai-normal (make-fixed-ply-player 2 valid-moves do-move eval-board eval-board-final True))
 (define ai-hard (make-fixed-ply-player 4 valid-moves do-move eval-board eval-board-final True))
+
+;;; Make a human player
 
 (define (human-player board in pos color) ; → move|false|quit target in
 	(let ((moves (valid-moves board color)))

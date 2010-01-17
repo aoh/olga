@@ -2,16 +2,29 @@
 ;;; Game-independent AI stuff
 ;;;
 
+; todo
+;	- beam search (n best)
+;	- resource bounded search (n nodes)
+;	- α-β optimizations (killer heuristic and others)
+
 (define-module lib-ai
 
 	(export 
-		make-random-player
-		make-simple-player
-		make-fixed-ply-player)
+		make-random-player		; get-moves → player
+		make-simple-player		; get-moves → do-move → eval-board → factor → player
+		make-fixed-ply-player	; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
+	)
 
 	(import lib-random)
 
-	;;; a random AI
+	;;; all games are conceptually between black and white 
+
+	(define (opponent-of x)
+		(if (eq? x 'black) 'white 'black))
+
+	;;;
+	;;; Play random valid moves (usually called imbecile)
+	;;;
 
 	(define (make-random-player get-moves) 
 		(λ (board in last color) ; → move|false x in'
@@ -27,7 +40,7 @@
 						(values move in))))))
 
 	;;;
-	;;; semirandom O(1) AIs 
+	;;; An AI playing statistically to places which score higher using the eval function
 	;;;
 
 	(define (grab-move ps n)
@@ -78,10 +91,10 @@
 
 		(define (plan-ahead board color α β ply)
 			(if (= ply 0)
-				(values (eval-board board color) no-move) ; ← fixme, temp eval
-				(let ((opts (valid-moves board color)))
+				(values (eval board color) no-move) ; ← fixme, temp eval
+				(let ((opts (get-moves board color)))
 					(if (null? opts)
-						(let ((opp-moves (valid-moves board (opponent-of color))))
+						(let ((opp-moves (get-moves board (opponent-of color))))
 							(cond
 								((null? opp-moves) (values (eval-final board color) no-move))
 								(allow-skip? 
