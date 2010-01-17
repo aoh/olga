@@ -14,7 +14,6 @@
 ;			o attack coverage? probably less useful than an extra ply..
 ; 	- alternative starting configurations and board layouts
 
-
 ; started with basic gameplay. a saner ai next.
 
 (define usage-text "Usage: ataxx [args]")
@@ -167,6 +166,69 @@ fixme: rules and history here.
 		((has? (get jumps source null) pos) True)
 		(else False)))
 
+(define (find-move moves source pos)
+	(call/cc (λ (ret)
+		(for-each	
+			(λ (move)
+				(lets ((kind from to move))
+					(if (and (eq? from source) (eq? to pos))
+						(ret move))))
+			moves)
+		False)))
+
+; board → int (to be used as random seed)
+(define (board-seed board)
+	(ff-fold
+		(λ (seed pos val)
+			(if (eq? pos black) (* seed 2) (+ seed 1)))
+		(time 1) board))
+
+(define (make-move board pos player)
+	(for (put board pos player) (get neighbours pos null)
+		(λ (board pos) 
+			(if (get board pos False)
+				(fupd board pos player)
+				board))))
+
+(define (make-jump board from to player)
+	(make-move (del board from) to player))
+
+(define (eval-board board color)
+	(ff-fold
+		(λ (score pos val)
+			(if (eq? val color) (+ score 1) (- score 1)))
+		0 board))
+
+(define win   65535)
+(define lose -65535)
+
+(define (eval-board-final board color)
+	(let ((score (eval-board board color)))
+		(cond
+			((> score 0) win)
+			((eq? score 0) 0)
+			(else lose))))
+
+(define (do-move board move color)
+	(lets ((type from to move))
+		(if (eq? type 'jump)
+			(make-jump board from to color)
+			(make-move board to color))))
+
+
+;;;
+;;; Game-independent AI stuff
+;;;
+
+,r "ai.scm"
+
+(import lib-ai)
+
+(define ai-imbecile (make-random-player valid-moves))
+(define ai-easy (make-simple-player valid-moves do-move eval-board 2))
+(define ai-normal (make-fixed-ply-player 2 valid-moves do-move eval-board eval-board-final True))
+(define ai-hard (make-fixed-ply-player 4 valid-moves do-move eval-board eval-board-final True))
+
 (define (human-player board in pos color) ; → move|false|quit target in
 	(let ((moves (valid-moves board color)))
 		(if (null? moves)
@@ -189,9 +251,11 @@ fixme: rules and history here.
 										(let ((pos (+ x (* y s))))
 											(cond
 												((blank? board pos)
-													(if (and source (valid-move? board source pos))
-														(values source pos (cdr in))
-														(loop (cdr in) x y False)))
+													(cond
+														((find-move moves source pos) =>	
+															(λ (move) (values move (cdr in))))
+														(else
+															(loop (cdr in) x y False))))
 												((eq? color (get board pos False))
 													(loop (cdr in) x y pos))
 												(else
@@ -205,173 +269,6 @@ fixme: rules and history here.
 					(else (loop (in) x y source)))))))
 
 
-;;; artificial stupidity begins
-
-; board → int (to be used as random seed)
-(define (board-seed board)
-	(ff-fold
-		(λ (seed pos val)
-			(if (eq? pos black) (* seed 2) (+ seed 1)))
-		(time 1) board))
-
-(define (make-move board pos player)
-	(for (put board pos player) (get neighbours pos null)
-		(λ (board pos) 
-			(if (get board pos False)
-				(fupd board pos player)
-				board))))
-
-(define (make-jump board from to player)
-	(make-move (del board from) to player))
-
-;;;
-;;; AI - imbecile, play randomly
-;;;
-
-(define-module lib-ai-imbecile
-	(export ai-imbecile)
-	(import lib-random)
-
-	(define (evaluate-move board)
-		(λ (move tail) 42))
-
-	(define (ai-imbecile board in last color)
-		(lets
-			((opts (valid-moves board color))
-			 (seed (board-seed board)))
-			(if (null? opts)
-				(values False False in)
-				(lets 
-					((rst n (rand seed (length opts)))
-					 (move (lref opts n)))
-					(values (ref move 2) (ref move 3) in)))))
-)
-
-
-; a shared evaluation function for ease and search guiding. TEEEEMP.
-
-(define (eval-board board color)
-	(ff-fold
-		(λ (score pos val)
-			(if (eq? val color) (+ score 1) (- score 1)))
-		0 board))
-
-
-;;;
-;;; AI - easy, check current moves and pick a resonably good one using a simple heuristic
-;;;
-
-(define-module lib-ai-easy
-
-	(export ai-easy)
-	(import lib-random)
-
-	(define (grab-move ps n)
-		(if (null? ps)
-			(error "could not grab move: " n)
-			(let ((this (ref (car ps) 3)))
-				(if (<= n this)
-					(car ps)
-					(grab-move (cdr ps) (- n this))))))
-
-	(define (select-move proposals rst)
-		(if (null? proposals)
-			(tuple False False 0)
-			(lets
-				((min (+ 1 (abs (fold (λ (lead prop) (min lead (ref prop 3))) 0 proposals))))
-				 (proposals
-					(map (λ (prop) (set prop 3 (+ (ref prop 3) min))) proposals))
-				 (total (fold  (λ (sum x) (+ sum (ref x 3))) 0 proposals))
-				 (rst n (rand rst total)))
-				(grab-move proposals n))))
-
-	(define (eval-move board color)
-		(λ (tail move)
-			(tuple-case move
-				((jump from to)
-					(cons (tuple from to (eval-board (make-jump board from to color) color)) tail))
-				((clone from to) 
-					(cons (tuple from to (eval-board (make-move board to color) color)) tail))
-				(else
-					(error "funny move: " move)))))
-
-	; look forward one move and see how good the situations are, and make 
-	; a weighted move to the better half of the moves
-
-	(define (ai-easy board in last color)
-		(lets
-			((opts (valid-moves board color))
-			 (seed (board-seed board))
-			 (proposals (fold (eval-move board color) null opts))
-			 (proposals (sort (λ (a b) (> (ref a 3) (ref b 3))) proposals))
-			 (proposals (take proposals (div (length proposals) 2)))
-			 (move (select-move proposals seed))
-			 (from to score move))
-			(values from to in)))
-)
-
-
-;;;
-;;; AI - normal, using a run-of-the-mill minimax with α-β, naive eval
-;;;
-
-(define-module lib-ai-normal
-
-	(export fixed-ply-player)
-
-	(define no-move (tuple 'move False False))
-
-	(define win   65535)
-	(define lose -65535)
-
-	(define (evaluate-final board color)
-		(let ((count (ff-fold (λ (sum pos val) (+ sum (if (eq? val color) 1 -1))) 0 board)))
-			(cond
-				((> count 0) win)
-				((eq? count 0) 0)
-				(else lose))))
-
-	(define (do-move board move color)
-		(lets ((type from to move))
-			(if (eq? type 'jump)
-				(make-jump board from to color)
-				(make-move board to color))))
-
-	(define (plan-ahead board color α β ply)
-		(if (= ply 0)
-			(values (eval-board board color) no-move) ; ← fixme, temp eval
-			(let ((opts (valid-moves board color)))
-				(if (null? opts)
-					(let ((oopts (valid-moves board (opponent-of color))))
-						(if (null? oopts)
-							(values (evaluate-final board color) no-move)
-							(lets ((oscore omove (plan-ahead board (opponent-of color) (- 0 β) (- 0 α) ply)))
-								(values (- 0 oscore) no-move))))
-					(let loop ((opts opts) (α α) (best (car opts)))
-						(cond
-							((null? opts) (values α best))
-							((< α β)
-								(lets
-									((os om (plan-ahead (do-move board (car opts) color)
-													(opponent-of color) (- 0 β) (- 0 α) (- ply 1)))
-									 (score (- 0 os)))
-									(if (> score α)
-										(loop (cdr opts) score (car opts))
-										(loop (cdr opts) α best))))
-							(else (values α best))))))))
-
-	(define (fixed-ply-player ply)
-		(λ (board in last color)
-			(lets ((score move (plan-ahead board color lose win ply)))
-				(values (ref move 2) (ref move 3) in))))
-)
-
-(import lib-ai-normal fixed-ply-player)
-(import lib-ai-easy ai-easy)
-(import lib-ai-imbecile ai-imbecile)
-
-(define ai-normal (fixed-ply-player 2))
-(define ai-hard   (fixed-ply-player 3)) ; in the land of the blind...
 
 (define empty-board 
 	(list->ff
@@ -435,6 +332,17 @@ fixme: rules and history here.
 	(sleep 3000)
 	(opponent-of player))
 
+(define (valid-move? board player move)
+	(mem equal? (valid-moves board player) move))
+
+(define (do-move board move color)
+	(tuple-case move
+		((clone pos to) (make-move board to color))
+		((jump from to) (make-jump board from to color))
+		(else (error "bad move: " move))))
+
+(define (move-target move) (ref move (size move)))
+
 ; -> black | white | draw | quit
 (define (match board in pos next player opponent)
 	(print-board board (rem pos s) (div pos s))
@@ -447,27 +355,18 @@ fixme: rules and history here.
 					(interact 0 'input))
 				winner))
 		(else
-			(lets ((move to in (player board in pos next)))
-				(if move
-					(cond
-						; is the player in the from position
-						((eq? next (get board move False))
-							; is the move target ok
-							(lets ((moves jumps (valid-moves-of board move)))
-								(cond
-									((has? moves to)
-										(match (make-move board to next) in to 
-											(opponent-of next) opponent player))
-									((has? jumps to)
-										(match (make-jump board move to next) in to
-											(opponent-of next) opponent player))
-									(else
-										(disqualify next (list "an erronous move target from " move " to " to))))))
-						((eq? move 'quit)
-							'quit)
-						(else
-							(disqualify next "an erronous move.")))
-					(match board in pos (opponent-of next) opponent player))))))
+			(lets ((move in (player board in pos next)))
+				(cond
+					((not move)
+						(match board in pos (opponent-of next) opponent player))
+					((eq? move 'quit)
+						'quit)
+					((valid-move? board next move)
+						(match (do-move board move next) in 
+							(move-target move) (opponent-of next) opponent player))
+					(else
+						(disqualify next "invalid move.")))))))
+
 
 ; names have to be printed differently, because rendering asks function
 ; names are from the 'meta thread, which is (stupid and) kind of useless 
@@ -546,8 +445,8 @@ fixme: rules and history here.
 						(play-ataxx dict)))))
 		1))
 
-; (ataxx '("ataxx" "-b" "normal" "-w" "human"))
-; (ataxx '("ataxx" "-b" "easy" "-w" "imbecile"))
+(ataxx '("ataxx" "-b" "imbecile" "-w" "easy"))
+; (ataxx '("ataxx" "-b" "easy" "-w" "easy" "-n" "10"))
 
 (dump ataxx "ataxx.c")
 
