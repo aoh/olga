@@ -3,24 +3,7 @@
 ;;;
 
 ; todo:
-;	- make difficulty selection smoother (bound ply, beam width and/or 
-;    search time)
-;	- fix the data structure brain fart
-;		+ match is a list of moves, and ais can build their nodes
-;	- proper terminal io
-;		+ sane print-board (show only different cells)
-;		+ no terminal size checks
-;	- ai
-;		+ optimize the search!
-;		+ single-slice move weights now wrong
-;		+ grow beam in the background?
-;		+ get some statistics on how well search stays in a narrow beam
-;	- make the program play less deterministically
-;		+ think in the background
-;			o store best paths in search
-;			o start with the cdr on matched human move
-;		+ vary beam width
-;		+ vary scores
+;	- convert to generic ai code
 
 (define board-size 15)
 (define beam-width 4)

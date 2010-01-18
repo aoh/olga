@@ -63,7 +63,7 @@ owl.c: owl.c.gz
 
 install: everything # error, also copies owl
 	mkdir -p $(PREFIX)/bin
-	cp -i bin/* $(PREFIX)/bin
+	cp bin/* $(PREFIX)/bin
 
 clean: 
 	rm owl *.c bin/*

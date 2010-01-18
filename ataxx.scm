@@ -3,6 +3,7 @@
 ;;;
 
 ; todo
+;	- show selected piece differently in human-player
 ;	- benchmark how much faster bit boards would be
 ;	- saner evaluation function
 ;		+ possible improvements
@@ -146,6 +147,21 @@ fixme: rules and history here.
 					((moves 
 						(for moves (blanks-in board (get neighbours pos null) null)
 							(λ (tail move) (cons (tuple 'clone pos move) tail))))
+					 (moves 
+						(for moves (blanks-in board (get jumps pos null) null)
+							(λ (tail move) (cons (tuple 'jump pos move) tail)))))
+					moves)
+				moves))
+		null board))
+
+(define (valid-unique-moves board player) ; → (#(jump|clone from to) ...)
+	(ff-fold
+		(λ (moves pos val)
+			(if (eq? val player)
+				(lets
+					((moves 
+						(for moves (blanks-in board (get neighbours pos null) null)
+							(λ (tail move) (cons (tuple 'clone pos move) tail))))
 					 (moves (remove-duplicates moves))
 					 (moves 
 						(for moves (blanks-in board (get jumps pos null) null)
@@ -214,17 +230,17 @@ fixme: rules and history here.
 
 (import lib-ai)
 
-(define ai-imbecile (make-random-player valid-moves))
-(define ai-easy (make-simple-player valid-moves do-move eval-board 2))
-(define ai-normal (make-fixed-ply-player 2 valid-moves do-move eval-board eval-board-final True))
-(define ai-hard (make-fixed-ply-player 4 valid-moves do-move eval-board eval-board-final True))
+(define ai-imbecile (make-random-player valid-unique-moves))
+(define ai-easy (make-simple-player valid-unique-moves do-move eval-board 2))
+(define ai-normal (make-fixed-ply-player 2 valid-unique-moves do-move eval-board eval-board-final True))
+(define ai-hard (make-fixed-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
 
 ;;; Make a human player
 
 (define (human-player board in pos color) ; → move|false|quit target in
 	(let ((moves (valid-moves board color)))
 		(if (null? moves)
-			(values False pos in)
+			(values False in)
 			(let loop ((in in) (x (rem pos s)) (y (div pos s)) (source False))
 				(print-board board x y)
 				(position-cursor x y)
@@ -253,7 +269,7 @@ fixme: rules and history here.
 												(else
 													(loop (cdr in) x y False)))))
 									((113) ; [q]uit
-										(values 'quit 'quit (cdr in)))
+										(values 'quit (cdr in)))
 									(else
 										(loop (cdr in) x y source))))
 							(else
@@ -370,18 +386,20 @@ fixme: rules and history here.
 		(get players player "mysterious")))
 
 (define (show-match-results res)
-	(lets
-		((res (ff->list res))
-		 (res (sort (λ (a b) (> (cdr a) (cdr b))) res)))
-		(clear-screen)
-		(set-cursor 1 1)
-		(print "Results: ")
-		(for-each
-			(λ (node)
-				(lets ((winner count node))
-					(print* (list " - " (name-of winner) ": " count))))
-			res)
-		0))
+	(if res
+		(lets
+			((res (ff->list res))
+			 (res (sort (λ (a b) (> (cdr a) (cdr b))) res)))
+			(clear-screen)
+			(set-cursor 1 1)
+			(print "Results: ")
+			(for-each
+				(λ (node)
+					(lets ((winner count node))
+						(print* (list " - " (name-of winner) ": " count))))
+				res)
+			0)
+		(print "Quitter.")))
 
 (define (start-match black-player white-player games)
 	(let loop ((status False) (bp black-player) (wp white-player) (games games))
@@ -396,17 +414,14 @@ fixme: rules and history here.
 						((eq? res 'draw) (put status 'draw (+ 1 (get status 'draw 0))))
 						(else status))))
 				(if (eq? res 'quit)
-					(begin
-						(print (del status res))
-						0)
+					(show-match-results (del status res))
 					(begin
 						(clear-screen)
 						(set-cursor 1 1)
 						(show "outcomes: "
 							(ff-fold (lambda (out player score) (cons (cons (name-of player) score) out)) null status))
-						;(interact 0 'input)
 						(flush-port 1)
-						(sleep 1000)
+						; (sleep 500) ; enough to see the progress in ai matches
 						(loop status wp bp (- games 1)))))
 			(begin
 				(normal-console)
