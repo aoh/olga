@@ -135,17 +135,34 @@ You are human. Pres s to skip a move.
 (define (valid-move? board color move)
 	(mem equal? (valid-moves board color) move))
 
+(define empty-board 
+	(list->ff
+		(list
+			(cons (+ (* 3 s) 3) white)
+			(cons (+ (* 3 s) 4) black)
+			(cons (+ (* 4 s) 3) black)
+			(cons (+ (* 4 s) 4) white))))
+
 (define (human-player board in last-move color)
 	(lets 
 		((moves (valid-moves board color))
 		 (pos (if last-move (car last-move) (xy->pos 1 1)))
 		 (ff (list->ff moves)) ; ff of pos → flips
-		 (x y (pos->xy  pos)))
+		 (x y (pos->xy pos))
+		 (last 
+			(cond
+				((eq? board empty-board)
+					(list "Open the game."))
+				(last-move
+					(list (opponent-of color) " moved to (" x "," y ")."))
+				(else (list (opponent-of color) " skipped the last move.")))))
 		(if (null? moves)
 			(values False in)
 			(let loop ((in in) (x x) (y y))
 				(print-board board x y)
 				(print-moves moves color)
+				(set-cursor 1 12)
+				(print* last)
 				(position-cursor x y)
 				(flush-port 1)
 				(cond
@@ -179,14 +196,14 @@ You are human. Pres s to skip a move.
 (define scores
 	(list->ff
 		(zip cons (cells)
-			(list 20  -3  4  2  2  4  -3 20
-					-3  -3  2  1  1  2  -3 -3
+			(list 50  -9  4  2  2  4  -9 50
+					-9  -9  2  1  1  2  -9 -9
 					 4   2  4  2  2  4   2  4
 					 2   1  2  1  1  2   1  2
 					 2   1  2  1  1  2   1  2
 					 4   2  4  2  2  4   2  4
-					-3  -3  2  1  1  2  -3 -3
-					20  -3  4  2  2  4  -3 20))))
+					-9  -9  2  1  1  2  -9 -9
+					50  -9  4  2  2  4  -9 50))))
 
 (define (eval-board board color)
 	(ff-fold
@@ -195,6 +212,12 @@ You are human. Pres s to skip a move.
 				(+ score (get scores pos 0))
 				(- score (get scores pos 0))))
 		0 board))
+
+(define (eval-board-with-mobility board color)
+	(+ (eval-board board color)
+		(* 4
+			(- (length (valid-moves board color))
+				(length (valid-moves board (opponent-of color)))))))
 
 (define (do-move board cells color)
 	(for board cells (λ (board pos) (put board pos color))))
@@ -209,25 +232,21 @@ You are human. Pres s to skip a move.
 			((eq? winner 'draw) 0)
 			(else lose-score))))
 
-(define empty-board 
-	(list->ff
-		(list
-			(cons (+ (* 3 s) 3) white)
-			(cons (+ (* 3 s) 4) black)
-			(cons (+ (* 4 s) 3) black)
-			(cons (+ (* 4 s) 4) white))))
 
 (define ai-imbecile (make-random-player valid-moves))
 (define ai-stupid   (make-simple-player valid-moves do-move eval-board 2))	
+(define ai-easy     (make-simple-player valid-moves do-move eval-board-with-mobility 3))	; marginally less stupid
 ; demote these to easy and normal later
-(define ai-normal   (make-fixed-ply-player 2 valid-moves do-move eval-board eval-final True))
-(define ai-hard     (make-fixed-ply-player 4 valid-moves do-move eval-board eval-final True))
+(define ai-normal (make-fixed-ply-player 2 valid-moves do-move eval-board eval-final True))
+(define ai-hard (make-iterative-ply-player 5 valid-moves do-move eval-board eval-final True))
 
 (define players
 	(list->ff
 		(list 
+			; roughly in order 
 			(cons ai-imbecile "imbecile") 
 			(cons ai-stupid "stupid") 
+			(cons ai-easy "easy") 
 			(cons human-player "human")
 			(cons ai-normal "normal")
 			(cons ai-hard "hard")
@@ -253,7 +272,7 @@ You are human. Pres s to skip a move.
 		  (help  "-h" "--help")
 		  ;(tournament  "-t" "--tournament" comment "alternate players and count wins") ; now default
 		  (black "-b" "--black" cook ,choose-player default "human" comment "choose black player")
-		  (white "-w" "--white" cook ,choose-player default "easy" comment "choose white player")
+		  (white "-w" "--white" cook ,choose-player default "normal" comment "choose white player")
 		  ;(first "-s" "--start" cook ,choose-side default "black" comment "which player starts")
 		  ;(board "-b" "--board" cook ,string->board default ,default-board comment "board layout")
 		  )))
@@ -274,6 +293,8 @@ You are human. Pres s to skip a move.
 (define (match board in last-move next player opponent skipped?)
 	(lets ((x y (move->xy last-move)))
 		(print-board board x y)
+		(set-cursor 1 12)
+		(print* (list (opponent-of next) " moved to (" x ", " y ")"))
 		(if (board-full? board)
 			(pick-winner board)
 			(lets ((move in (player board in last-move next)))

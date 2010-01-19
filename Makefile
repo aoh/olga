@@ -41,7 +41,7 @@ flip.c: flip.scm owl
 bin/reversi: reversi.c 
 	gcc $(CFLAGS) -o bin/reversi reversi.c
 
-reversi.c: reversi.scm owl
+reversi.c: reversi.scm ai.scm owl
 	./owl reversi.scm
 
 ### ataxx
@@ -49,7 +49,7 @@ reversi.c: reversi.scm owl
 bin/ataxx: ataxx.c 
 	gcc $(CFLAGS) -o bin/ataxx ataxx.c
 
-ataxx.c: ataxx.scm owl
+ataxx.c: ataxx.scm ai.scm owl
 	./owl ataxx.scm
 
 ### owl (needed for scm -> c phase)

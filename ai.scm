@@ -10,12 +10,14 @@
 (define-module lib-ai
 
 	(export 
-		make-random-player		; get-moves → player
-		make-simple-player		; get-moves → do-move → eval-board → factor → player
-		make-fixed-ply-player	; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
+		make-random-player			; get-moves → player
+		make-simple-player			; get-moves → do-move → eval-board → factor → player
+		make-fixed-ply-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
+		make-iterative-ply-player	; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
 	)
 
 	(import lib-random)
+	(import lib-vt) ; debugging
 
 	;;; all games are conceptually between black and white 
 
@@ -79,7 +81,7 @@
 				(values (car move) in))))
 
 	;;;
-	;;; a classical fixed-ply minimax α-β 
+	;;; a classic fixed-ply minimax with α-β 
 	;;;
 
 	(define no-move False)
@@ -91,7 +93,7 @@
 
 		(define (plan-ahead board color α β ply)
 			(if (= ply 0)
-				(values (eval board color) no-move) ; ← fixme, temp eval
+				(values (eval board color) no-move)
 				(let ((opts (get-moves board color)))
 					(if (null? opts)
 						(let ((opp-moves (get-moves board (opponent-of color))))
@@ -119,4 +121,74 @@
 		(λ (board in last color)
 			(lets ((score move (plan-ahead board color lose win ply)))
 				(values move in))))
+
+	;;;
+	;;; Iterative deepening α-β with best trail 
+	;;;
+
+	(define (rest trail)
+		(if (null? trail) trail (cdr trail)))
+
+	(define (drop-move l x)
+		(cond
+			((null? l) False)
+			((equal? (car l) x) (cdr l))
+			(else 
+				(let ((tl (drop-move (cdr l) x)))
+					(if tl (cons (car l) tl) False)))))
+
+	(define (lift moves trail)
+		(cond
+			((null? trail) moves)
+			((drop-move moves (car trail)) => (λ (moves) (cons (car trail) moves)))
+			(else moves)))
+
+	(define (make-iterative-ply-player ply get-moves do-move eval eval-final allow-skip?)
+
+		(define (plan-ahead board color α β ply moves) ; → score x (move ...), being the best move sequence for *both* players
+			(if (= ply 0)
+				(values (eval board color) null)
+				(let ((opts (lift (get-moves board color) moves)))
+					(if (null? opts)
+						(let ((opp-moves (get-moves board (opponent-of color))))
+							(cond
+								((null? opp-moves) (values (eval-final board color) null))
+								(allow-skip? 
+									(lets ((oscore omoves (plan-ahead board (opponent-of color) (- 0 β) (- 0 α) ply (rest moves))))
+										(values (- 0 oscore) (cons no-move omoves))))
+								(else
+									; for example chess goes like this
+									(values lose null))))
+						(let loop ((opts opts) (α α) (best (cons (car opts) (rest moves))))
+							(cond
+								((null? opts) 
+									(values α best))
+								((< α β)
+									(lets
+										((n oms 
+											(plan-ahead (do-move board (car opts) color)
+												(opponent-of color) (- 0 β) (- 0 α)
+												(- ply 1) (rest moves)))
+										 (score (- 0 n)))
+										(if (> score α)
+											(loop (cdr opts) score (cons (car opts) oms))
+											(loop (cdr opts) α best))))
+								(else (values α best))))))))
+		
+		(λ (board in last color)
+			;(set-cursor 1 13)
+			;(print "Planning: ")
+			(values 
+				(car
+					(fold
+						(λ (trail ply)	
+							(lets ((score trail (plan-ahead board color lose win ply trail)))
+								;(set-cursor 1 (+ 13 ply))
+								;(print* (list " - trail " trail " has score " score "."))
+								trail))
+						null (iota 1 1 (+ ply 1))))
+				in)))
+
+
 )
+

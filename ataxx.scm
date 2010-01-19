@@ -233,7 +233,8 @@ fixme: rules and history here.
 (define ai-imbecile (make-random-player valid-unique-moves))
 (define ai-easy (make-simple-player valid-unique-moves do-move eval-board 2))
 (define ai-normal (make-fixed-ply-player 2 valid-unique-moves do-move eval-board eval-board-final True))
-(define ai-hard (make-fixed-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+(define ai-hard
+	(make-iterative-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
 
 ;;; Make a human player
 
