@@ -383,27 +383,23 @@
 	(fold (λ (is pos) (and is (get sudo pos False))) True (cells)))
 
 (define (play-sudoku sudo in x y prev) 
+	(clear-screen)
 	(print-sudoku sudo)
 	(if (solved? sudo)
 		(begin
 			(set-cursor 1 16)
 			(print "There, you fixed it!")
 			0)
-		(begin
+		(let loop ((in in) (x x) (y y))
 			(plot-cell x y 'cursor)
 			(flush-port 1)
 			(lets ((ok val in (parse-vt in)))
-				(clear-screen)
 				(if ok
 					(cond
-						((up? val)
-							(play-sudoku sudo in x (max 0 (- y 1)) prev))
-						((down? val)
-							(play-sudoku sudo in x (min 8 (+ y 1)) prev))
-						((left? val)
-							(play-sudoku sudo in (max 0 (- x 1)) y prev))
-						((right? val)
-							(play-sudoku sudo in (min 8 (+ x 1)) y prev))
+						((up? val) (loop in x (max 0 (- y 1))))
+						((down? val) (loop in x (min 8 (+ y 1))))
+						((left? val) (loop in (max 0 (- x 1)) y))
+						((right? val) (loop in (min 8 (+ x 1)) y))
 						((eq? (ref val 1) 'key)
 							(lets ((sudo x y prev (apply-action sudo x y prev (ref val 2))))
 								(if sudo

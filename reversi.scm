@@ -156,13 +156,13 @@ You are human. Pres s to skip a move.
 				(last-move
 					(list (opponent-of color) " moved to (" x "," y ")."))
 				(else (list (opponent-of color) " skipped the last move.")))))
+		(print-board board x y)
+		(print-moves moves color)
+		(set-cursor 1 12)
+		(print* last)
 		(if (null? moves)
 			(values False in)
 			(let loop ((in in) (x x) (y y))
-				(print-board board x y)
-				(print-moves moves color)
-				(set-cursor 1 12)
-				(print* last)
 				(position-cursor x y)
 				(flush-port 1)
 				(cond
@@ -175,7 +175,7 @@ You are human. Pres s to skip a move.
 									(loop (cdr in) x y)))
 							((key k)
 								(case k
-									((32) ; [space] move here (if applicable)
+									((13 32) ; [enter space] move here (if applicable)
 										(lets ((pos (xy->pos x y)) (flips (get ff pos False)))
 											(if flips
 												(values (cons pos flips) (cdr in))

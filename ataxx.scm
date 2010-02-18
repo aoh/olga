@@ -11,15 +11,21 @@
 ;			o attack coverage? probably less useful than an extra ply..
 ; 	- alternative starting configurations and board layouts
 
-; started with basic gameplay. a saner ai next.
-
 (define usage-text "Usage: ataxx [args]")
 
 (define about-ataxx
 "ataxx - a clone of the game ataxx
 This game is from http://code.google.com/p/olgame.
 
-fixme: rules and history here.
+Each piece can either grow a new one to a free neighbouring 8 
+cells or jump to a distance of 2, in which case the original 
+position becomes free. In both cases all the occupied neghbours 
+of the new position, if any, are convered to the players pieces.
+
+Use the arrow keys to move, and space or enter to first pick a 
+cell, then select the new position and press again.
+
+Pressing q ends the game.
 ")
 
 (import lib-args)
@@ -232,18 +238,19 @@ fixme: rules and history here.
 
 (define ai-imbecile (make-random-player valid-unique-moves))
 (define ai-easy (make-simple-player valid-unique-moves do-move eval-board 2))
-(define ai-normal (make-fixed-ply-player 2 valid-unique-moves do-move eval-board eval-board-final True))
-(define ai-hard
-	(make-iterative-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+(define ai-normal (make-fixed-ply-player 2 valid-unique-moves do-move eval-board eval-board-final False))
+(define ai-hard (make-iterative-ply-player 4 valid-unique-moves do-move eval-board eval-board-final False))
+(define ai-experimental
+	(make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final False))
 
 ;;; Make a human player
 
 (define (human-player board in pos color) ; → move|false|quit target in
 	(let ((moves (valid-moves board color)))
+		(print-board board 1 1)
 		(if (null? moves)
 			(values False in)
 			(let loop ((in in) (x (rem pos s)) (y (div pos s)) (source False))
-				(print-board board x y)
 				(position-cursor x y)
 				(flush-port 1)
 				(cond
@@ -277,8 +284,6 @@ fixme: rules and history here.
 								(loop (cdr in) x y source))))
 					(else (loop (in) x y source)))))))
 
-
-
 (define empty-board 
 	(list->ff
 		(list
@@ -295,6 +300,7 @@ fixme: rules and history here.
 			(cons human-player "human")
 			(cons ai-normal "normal")
 			(cons ai-hard "hard")
+			(cons ai-experimental "experimental")
 			)))
 
 (define (choose-player str)
@@ -428,7 +434,6 @@ fixme: rules and history here.
 				(normal-console)
 				(show-match-results status)))))
 				
-
 (define (play-ataxx args)
 	(raw-console)
 	(lets
