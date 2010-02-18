@@ -2,6 +2,9 @@
 ;;; ataxx
 ;;;
 
+,r "match.scm"
+(import lib-match)
+
 ; todo
 ;	- show selected piece differently in human-player
 ;	- benchmark how much faster bit boards would be
@@ -50,7 +53,10 @@ Pressing q ends the game.
 (define (position-cursor x y)
 	(set-cursor (+ xo (* x 2)) (+ yo y)))
 
-(define (print-board board x y)
+(define (xy->pos x y) (+ (* y s) x))
+(define (pos->xy pos) (values (div pos s) (rem pos s)))
+
+(define (print-board-xy board x y)
 	(clear-screen)
 	(for 42 (iota 0 1 s)
 		(λ (_ y)
@@ -61,6 +67,10 @@ Pressing q ends the game.
 	(position-cursor x y)
 	(flush-port 1))
 
+(define (print-board board move)
+	(lets ((x y (pos->xy move)))
+		(print-board-xy board x y)))
+	
 (define (move-focus board x y dir)
 	(cond
 		((eq? dir 'up) (values x (max 0 (- y 1))))
@@ -68,8 +78,6 @@ Pressing q ends the game.
 		((eq? dir 'left) (values (max 0 (- x 1)) y))
 		((eq? dir 'right) (values (min (- s 1) (+ x 1)) y))
 		(else (error "now that's a thought! let's all move to " dir))))
-
-(define (xy->pos x y) (+ (* y s) x))
 
 (define (over? p) (or (< p 0) (>= p s)))
 
@@ -236,18 +244,23 @@ Pressing q ends the game.
 
 (import lib-ai)
 
+; note, could set allow-skip to false, but then if the loser makes the last valid move, the 
+; possibly winning player may end up in a situation where there are no valid moves. the allow-skip 
+; should be allowed to be a function which describes the behavior in those cases, namely make 
+; any valid move for the opponent while applicable.
+
 (define ai-imbecile (make-random-player valid-unique-moves))
 (define ai-easy (make-simple-player valid-unique-moves do-move eval-board 2))
-(define ai-normal (make-fixed-ply-player 2 valid-unique-moves do-move eval-board eval-board-final False))
-(define ai-hard (make-iterative-ply-player 4 valid-unique-moves do-move eval-board eval-board-final False))
+(define ai-normal (make-fixed-ply-player 2 valid-unique-moves do-move eval-board eval-board-final True))
+(define ai-hard (make-iterative-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
 (define ai-experimental
-	(make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final False))
+	(make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final True))
 
 ;;; Make a human player
 
 (define (human-player board in pos color) ; → move|false|quit target in
 	(let ((moves (valid-moves board color)))
-		(print-board board 1 1)
+		(print-board-xy board 1 1)
 		(if (null? moves)
 			(values False in)
 			(let loop ((in in) (x (rem pos s)) (y (div pos s)) (source False))
@@ -332,24 +345,6 @@ Pressing q ends the game.
 			(for-each (λ pos (if (blank? board pos) (ret False))) (cells))
 			True)))
 
-(define (report-winner winner)
-	(set-cursor 1 10)
-	(cond
-		((eq? winner black)
-			(print "The black knight always triumphs."))
-		((eq? winner white)
-			(print "The white wizard is victorius."))
-		(else
-			(print "All right. We'll call it a draw."))))
-
-(define (disqualify player reason)
-	(show "Player disqualified due to " reason)
-	(sleep 3000)
-	(opponent-of player))
-
-(define (valid-move? board player move)
-	(mem equal? (valid-moves board player) move))
-
 (define (do-move board move color)
 	(tuple-case move
 		((clone pos to) (make-move board to color))
@@ -357,92 +352,6 @@ Pressing q ends the game.
 		(else (error "bad move: " move))))
 
 (define (move-target move) (ref move (size move)))
-
-; -> black | white | draw | quit
-(define (match board in pos next player opponent)
-	(print-board board (rem pos s) (div pos s))
-	(cond
-		((pick-winner board) =>
-			(λ (winner)
-				(report-winner winner)
-				; wait for a key press unless war of the ais
-				(if (or (eq? player human-player) (eq? opponent human-player))
-					(interact 0 'input))
-				winner))
-		(else
-			(lets ((move in (player board in pos next)))
-				(cond
-					((not move)
-						(match board in pos (opponent-of next) opponent player))
-					((eq? move 'quit)
-						'quit)
-					((valid-move? board next move)
-						(match (do-move board move next) in 
-							(move-target move) (opponent-of next) opponent player))
-					(else
-						(disqualify next "invalid move.")))))))
-
-
-; names have to be printed differently, because rendering asks function
-; names are from the 'meta thread, which is (stupid and) kind of useless 
-; to have running around in dumped code.
-
-(define (name-of player)
-	(if (eq? player 'draw)
-		"draw"
-		(get players player "mysterious")))
-
-(define (show-match-results res)
-	(if res
-		(lets
-			((res (ff->list res))
-			 (res (sort (λ (a b) (> (cdr a) (cdr b))) res)))
-			(clear-screen)
-			(set-cursor 1 1)
-			(print "Results: ")
-			(for-each
-				(λ (node)
-					(lets ((winner count node))
-						(print* (list " - " (name-of winner) ": " count))))
-				res)
-			0)
-		(print "Quitter.")))
-
-(define (start-match black-player white-player games)
-	(let loop ((status False) (bp black-player) (wp white-player) (games games))
-		(if (> games 0)
-			(lets
-				((res 
-					(match empty-board (vt-events 0) 0 black bp wp))
-				 (status
-					(cond
-						((eq? res black) (put status bp (+ 1 (get status bp 0))))
-						((eq? res white) (put status wp (+ 1 (get status wp 0))))
-						((eq? res 'draw) (put status 'draw (+ 1 (get status 'draw 0))))
-						(else status))))
-				(if (eq? res 'quit)
-					(show-match-results (del status res))
-					(begin
-						(clear-screen)
-						(set-cursor 1 1)
-						(show "outcomes: "
-							(ff-fold (lambda (out player score) (cons (cons (name-of player) score) out)) null status))
-						(flush-port 1)
-						; (sleep 500) ; enough to see the progress in ai matches
-						(loop status wp bp (- games 1)))))
-			(begin
-				(normal-console)
-				(show-match-results status)))))
-				
-(define (play-ataxx args)
-	(raw-console)
-	(lets
-		((board empty-board) 
-		 (white (get args 'white 'bug))
-		 (black (get args 'black 'bug))
-		 (result (start-match black white (get args 'matches 1))))
-		(normal-console)
-		0))
 
 (define (ataxx args)
 	(or 
@@ -455,10 +364,12 @@ Pressing q ends the game.
 						(print usage-text)
 						(print-rules command-line-rules))
 					(else
-						(play-ataxx dict)))))
+						(play-match dict empty-board print-board
+							pick-winner valid-moves do-move players move-target
+							)))))
 		1))
 
-(ataxx '("ataxx" "-b" "imbecile" "-w" "easy"))
+; (ataxx '("ataxx" "-b" "imbecile" "-w" "easy"))
 ; (ataxx '("ataxx" "-b" "easy" "-w" "easy" "-n" "10"))
 
 (dump ataxx "ataxx.c")
