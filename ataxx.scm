@@ -276,7 +276,7 @@ Pressing q ends the game.
 							((key k)
 								; faactoor
 								(case k
-									((32) 
+									((32 13) 
 										(let ((pos (+ x (* y s))))
 											(cond
 												((blank? board pos)

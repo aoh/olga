@@ -41,7 +41,7 @@
 							(match board in pos (opponent-of next) opponent player printer move-target pick-winner valid-moves do-move))
 						((eq? move 'quit)
 							'quit)
-						((mem equal? (valid-moves board player) move)
+						((mem equal? (valid-moves board next) move)
 							(match (do-move board move next) in 
 								(move-target move) (opponent-of next) 
 								opponent player printer move-target pick-winner valid-moves do-move))
