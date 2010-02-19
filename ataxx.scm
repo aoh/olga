@@ -54,7 +54,9 @@ Pressing q ends the game.
 	(set-cursor (+ xo (* x 2)) (+ yo y)))
 
 (define (xy->pos x y) (+ (* y s) x))
-(define (pos->xy pos) (values (div pos s) (rem pos s)))
+(define (pos->xy pos) (values (rem pos s) (div pos s)))
+(define (move-target move) (ref move (size move)))
+(define (move->xy move) (if move (pos->xy (move-target move)) (values 1 1)))
 
 (define (print-board-xy board x y)
 	(clear-screen)
@@ -68,7 +70,7 @@ Pressing q ends the game.
 	(flush-port 1))
 
 (define (print-board board move)
-	(lets ((x y (pos->xy move)))
+	(lets ((x y (move->xy move)))
 		(print-board-xy board x y)))
 	
 (define (move-focus board x y dir)
@@ -259,11 +261,13 @@ Pressing q ends the game.
 ;;; Make a human player
 
 (define (human-player board in pos color) ; → move|false|quit target in
-	(let ((moves (valid-moves board color)))
-		(print-board-xy board 1 1)
+	(lets
+		((moves (valid-moves board color))
+		 (x y (move->xy pos)))
+		(print-board-xy board x y)
 		(if (null? moves)
 			(values False in)
-			(let loop ((in in) (x (rem pos s)) (y (div pos s)) (source False))
+			(let loop ((in in) (x x) (y y) (source False))
 				(position-cursor x y)
 				(flush-port 1)
 				(cond
@@ -351,7 +355,7 @@ Pressing q ends the game.
 		((jump from to) (make-jump board from to color))
 		(else (error "bad move: " move))))
 
-(define (move-target move) (ref move (size move)))
+(define start-position (tuple 0))
 
 (define (ataxx args)
 	(or 
@@ -365,11 +369,10 @@ Pressing q ends the game.
 						(print-rules command-line-rules))
 					(else
 						(play-match dict empty-board print-board
-							pick-winner valid-moves do-move players move-target
-							)))))
+							pick-winner valid-moves do-move players start-position)))))
 		1))
 
-; (ataxx '("ataxx" "-b" "imbecile" "-w" "easy"))
+; (ataxx '("ataxx" "-b" "human" "-w" "imbecile" "-n" "1"))
 ; (ataxx '("ataxx" "-b" "easy" "-w" "easy" "-n" "10"))
 
 (dump ataxx "ataxx.c")

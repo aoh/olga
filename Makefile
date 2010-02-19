@@ -41,7 +41,7 @@ flip.c: flip.scm owl
 bin/reversi: reversi.c 
 	gcc $(CFLAGS) -o bin/reversi reversi.c
 
-reversi.c: reversi.scm ai.scm owl
+reversi.c: reversi.scm ai.scm match.scm owl
 	./owl reversi.scm
 
 ### ataxx

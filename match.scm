@@ -29,22 +29,24 @@
 		(opponent-of player))
 
 	; -> black | white | draw | quit
-	(define (match board in pos next player opponent printer move-target pick-winner valid-moves do-move)
+	(define (match board in pos next player opponent printer pick-winner valid-moves do-move)
 		(printer board pos)
 		(cond
 			((pick-winner board) =>
-				(λ (winner) (report-winner winner) winner))
+				(λ (winner) 
+					(show "Winner is " winner)
+					(report-winner winner) winner))
 			(else
 				(lets ((move in (player board in pos next)))
 					(cond
 						((not move)
-							(match board in pos (opponent-of next) opponent player printer move-target pick-winner valid-moves do-move))
+							(match board in pos (opponent-of next) opponent player printer pick-winner valid-moves do-move))
 						((eq? move 'quit)
 							'quit)
 						((mem equal? (valid-moves board next) move)
 							(match (do-move board move next) in 
-								(move-target move) (opponent-of next) 
-								opponent player printer move-target pick-winner valid-moves do-move))
+								move (opponent-of next) 
+								opponent player printer pick-winner valid-moves do-move))
 						(else
 							(disqualify next "invalid move.")))))))
 
@@ -75,12 +77,12 @@
 				0)
 			(print "Quitter.")))
 
-	(define (start-match black-player white-player empty-board games printer pick-winner valid-moves do-move move-target players)
+	(define (start-match black-player white-player empty-board games printer pick-winner valid-moves do-move players start)
 		(let loop ((status False) (bp black-player) (wp white-player) (games games))
 			(if (> games 0)
 				(lets
 					((res 
-						(match empty-board (vt-events 0) 0 black bp wp printer move-target pick-winner valid-moves do-move))
+						(match empty-board (vt-events 0) start black bp wp printer pick-winner valid-moves do-move))
 					 (status
 						(cond
 							((eq? res black) (put status bp (+ 1 (get status bp 0))))
@@ -92,19 +94,19 @@
 						(begin
 							(clear-screen)
 							(set-cursor 1 1)
-							(show "outcomes: "
+							(show "Status: "
 								(ff-fold (lambda (out player score) (cons (cons (name-of player players) score) out)) null status))
 							(flush-port 1)
 							; (sleep 500) ; enough to see the progress in ai matches
 							(loop status wp bp (- games 1)))))
 				(show-match-results status players))))
 
-	(define (play-match args empty-board print-board pick-winner valid-moves do-move players move-target)
+	(define (play-match args empty-board print-board pick-winner valid-moves do-move players start)
 		(raw-console)
 		(lets
 			((white (get args 'white 'bug))
 			 (black (get args 'black 'bug))
-			 (result (start-match black white empty-board (get args 'matches 1) print-board pick-winner valid-moves do-move move-target players)))
+			 (result (start-match black white empty-board (get args 'matches 1) print-board pick-winner valid-moves do-move players start)))
 			(normal-console)
 			0))
 

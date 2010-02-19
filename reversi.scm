@@ -41,7 +41,7 @@ You are human. Pres s to skip a move.
 (define (position-cursor x y)
 	(set-cursor (+ xo (* x 2)) (+ yo y)))
 
-(define (print-board board x y)
+(define (print-board-xy board x y)
 	(clear-screen)
 	(for 42 (iota 0 1 s)
 		(λ (_ y)
@@ -51,6 +51,13 @@ You are human. Pres s to skip a move.
 					(display (render-cell (get board (+ x (* y s)) 'blank)))))))
 	(position-cursor x y)
 	(flush-port 1))
+
+(define (move->xy move)
+	(if move (pos->xy (car move)) (values 1 1)))
+
+(define (print-board board move)
+	(lets ((x y (move->xy move)))
+		(print-board-xy board x y)))
 
 (define (print-moves moves color)
 	(let ((marker (if (eq? color 'black) "•" "◦")))
@@ -84,6 +91,7 @@ You are human. Pres s to skip a move.
 
 (define (neighbours x y)
 	(map (λ (dir) (cdr (read-neighbours x y (car dir) (cdr dir)))) dirs))
+
 (define (board-full? board)
 	(call/cc 
 		(λ (ret) 
@@ -93,12 +101,14 @@ You are human. Pres s to skip a move.
 			True)))
 
 (define (pick-winner board)
-	(define score 
-		(ff-fold (λ (n pos val) (+ n (if (eq? val black) 1 -1))) 0 board))
-	(cond
-		((< score 0) white)
-		((= score 0) 'draw)
-		(else black)))
+	(if (board-full? board)
+		(let ((score
+			(ff-fold (λ (n pos val) (+ n (if (eq? val black) 1 -1))) 0 board)))
+			(cond
+				((< score 0) white)
+				((= score 0) 'draw)
+				(else black)))
+		False))
 
 (define (opponent-of x) (if (eq? x black) white black))
 
@@ -156,7 +166,7 @@ You are human. Pres s to skip a move.
 				(last-move
 					(list (opponent-of color) " moved to (" x "," y ")."))
 				(else (list (opponent-of color) " skipped the last move.")))))
-		(print-board board x y)
+		(print-board-xy board x y)
 		(print-moves moves color)
 		(set-cursor 1 12)
 		(print* last)
@@ -275,8 +285,8 @@ You are human. Pres s to skip a move.
 		  (white "-w" "--white" cook ,choose-player default "normal" comment "choose white player")
 		  ;(first "-s" "--start" cook ,choose-side default "black" comment "which player starts")
 		  ;(board "-b" "--board" cook ,string->board default ,default-board comment "board layout")
+		  (matches "-n" "--matches" default "1" cook ,string->number check ,(λ x (and (number? x) (> x 0))))
 		  )))
-
 
 (define (get2 board x y def) (get board (xy->pos x y) def))
 
@@ -289,74 +299,8 @@ You are human. Pres s to skip a move.
 		(pos->xy (car maybe-move))
 		(values 1 1)))
 
-; -> black | white | draw | quit
-(define (match board in last-move next player opponent skipped?)
-	(lets ((x y (move->xy last-move)))
-		(print-board board x y)
-		(set-cursor 1 12)
-		(print* (list (opponent-of next) " moved to (" x ", " y ")"))
-		(if (board-full? board)
-			(pick-winner board)
-			(lets ((move in (player board in last-move next)))
-				(cond
-					((eq? move 'quit)
-						'quit)
-					(move
-						(if (valid-move? board next move)
-							(match
-								(fold
-									(λ (board pos) (put board pos next))
-									board move)
-								in move (opponent-of next) opponent player False)
-							(disqualify next (list "bad move" move " valid " (valid-moves board next)))))
-					(skipped? 
-						; both player skipped or were forced to skip -> game over
-						(pick-winner board))
-					(else
-						(match board in move (opponent-of next) opponent player True)))))))
-
-(define (name-of player)
-	(if (eq? player 'draw)
-		"draw"
-		(get players player "mysterious")))
-
-(define (start-match black-player white-player)
-	(let loop ((status False) (bp black-player) (wp white-player))
-		(lets
-			((start (list (xy->pos 3 3)))
-			 (res 
-				(match empty-board (vt-events 0) start black bp wp False))
-			 (status
-				(cond
-					((eq? res black) (put status bp (+ 1 (get status bp 0))))
-					((eq? res white) (put status wp (+ 1 (get status wp 0))))
-					((eq? res 'draw) (put status 'draw (+ 1 (get status 'draw 0))))
-					(else status))))
-			(show "res is " res)
-			(if (eq? res 'quit)
-				(begin
-					(print (del status res))
-					0)
-				(begin
-					(clear-screen)
-					(set-cursor 1 1)
-					(show "outcomes: "
-						(ff-fold (lambda (out player score) (cons (cons (name-of player) score) out)) null status))
-					(sleep 500)
-					(loop status wp bp))))))
-
-(define (play-reversi args)
-	(raw-console)
-	(lets
-		((board empty-board) 
-		 (white (get args 'white 'bug))
-		 (black (get args 'black 'bug))
-		 (result (start-match black white)))
-		(normal-console)
-		(clear-screen)
-		(set-cursor 1 1)
-		(print "Bye bye.")
-		0))
+,r "match.scm"
+(import lib-match)
 
 (define (reversi args)
 	(or 
@@ -369,10 +313,11 @@ You are human. Pres s to skip a move.
 						(print usage-text)
 						(print-rules command-line-rules))
 					(else
-						(play-reversi dict)))))
+						(play-match dict empty-board print-board
+							pick-winner valid-moves do-move players '(0))))))
 		1))
 
 
-; (reversi '("reversi" "-w" "normal" "-b" "stupid"))
+; (reversi '("reversi" "-w" "human" "-b" "stupid"))
 
 (dump reversi "reversi.c")
