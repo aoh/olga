@@ -508,5 +508,5 @@ A better one is hopefully already available at http://code.google.com/p/olgame/"
 
 ; (sudoku-entry '(sudoku))
 
-(dump sudoku-entry "sudoku.c")
+sudoku-entry
 

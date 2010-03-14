@@ -762,7 +762,6 @@ UTF-8 capable vt100-like terminal.
 							human-player)))))
 		1))
 
-
-(dump five "five.c")
+five
 
 

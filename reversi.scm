@@ -320,4 +320,4 @@ You are human. Pres s to skip a move.
 
 ; (reversi '("reversi" "-w" "human" "-b" "stupid"))
 
-(dump reversi "reversi.c")
+reversi

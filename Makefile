@@ -10,7 +10,7 @@ bin/five: five.c
 	gcc $(CFLAGS) -o bin/five five.c
 
 five.c: five.scm owl
-	./owl five.scm
+	./owl -c five.scm
 
 #### sokoban
 
@@ -18,7 +18,7 @@ bin/soko: soko.c
 	gcc $(CFLAGS) -o bin/soko soko.c
 
 soko.c: soko.scm owl
-	./owl soko.scm
+	./owl -c soko.scm
 
 ### sudoku
 
@@ -26,7 +26,7 @@ bin/sudoku: sudoku.c
 	gcc $(CFLAGS) -o bin/sudoku sudoku.c
 
 sudoku.c: sudoku.scm owl
-	./owl sudoku.scm
+	./owl -c sudoku.scm
 
 ### flip
 
@@ -34,7 +34,7 @@ bin/flip: flip.c
 	gcc $(CFLAGS) -o bin/flip flip.c
 
 flip.c: flip.scm owl
-	./owl flip.scm
+	./owl -c flip.scm
 
 ### reversi
 
@@ -42,7 +42,7 @@ bin/reversi: reversi.c
 	gcc $(CFLAGS) -o bin/reversi reversi.c
 
 reversi.c: reversi.scm ai.scm match.scm owl
-	./owl reversi.scm
+	./owl -c reversi.scm
 
 ### ataxx
 
@@ -50,7 +50,7 @@ bin/ataxx: ataxx.c
 	gcc $(CFLAGS) -o bin/ataxx ataxx.c
 
 ataxx.c: ataxx.scm ai.scm match.scm owl
-	./owl ataxx.scm
+	./owl -c ataxx.scm
 
 ### owl (needed for scm -> c phase)
 

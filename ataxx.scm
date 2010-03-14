@@ -375,5 +375,5 @@ Pressing q ends the game.
 ; (ataxx '("ataxx" "-b" "human" "-w" "imbecile" "-n" "1"))
 ; (ataxx '("ataxx" "-b" "easy" "-w" "easy" "-n" "10"))
 
-(dump ataxx "ataxx.c")
+ataxx
 

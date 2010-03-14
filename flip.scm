@@ -193,4 +193,4 @@ fail to remember where, and what it was called.
 
 ;(flip '(flipper "-s" "10"))
 
-(dump flip "flip.c")
+flip

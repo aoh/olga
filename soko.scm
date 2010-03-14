@@ -509,11 +509,10 @@ You can do worse than to start with http://users.bentonrea.com/~sasquatch/sokoba
 			0)))
 
 ; to dump a sokoban heap
-(dump 
-	(lambda (args) 
-		(set-signal-action 'halt)
-		(start-sokoban (cdr args))) 
-	"soko.c")
+(lambda (args) 
+	(set-signal-action 'halt)
+	(start-sokoban (cdr args)))
+
 
 ;(start-sokoban (list "levels-microban"))
 
