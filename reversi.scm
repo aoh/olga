@@ -250,6 +250,11 @@ You are human. Pres s to skip a move.
 (define ai-normal (make-fixed-ply-player 2 valid-moves do-move eval-board eval-final True))
 (define ai-hard (make-iterative-ply-player 5 valid-moves do-move eval-board eval-final True))
 
+(define ai-exp-1 (make-time-bound-player 100 valid-moves do-move eval-board eval-final True))
+(define ai-exp-2 (make-time-bound-player 200 valid-moves do-move eval-board eval-final True))
+(define ai-exp-3 (make-time-bound-player 400 valid-moves do-move eval-board eval-final True))
+(define ai-exp-4 (make-time-bound-player 800 valid-moves do-move eval-board eval-final True))
+
 (define players
 	(list->ff
 		(list 
@@ -260,6 +265,10 @@ You are human. Pres s to skip a move.
 			(cons human-player "human")
 			(cons ai-normal "normal")
 			(cons ai-hard "hard")
+			(cons ai-exp-1 "100ms")
+			(cons ai-exp-2 "200ms")
+			(cons ai-exp-3 "400ms")
+			(cons ai-exp-4 "800ms")
 			)))
 
 (define (choose-player str)

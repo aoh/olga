@@ -6,6 +6,7 @@
 ;	- beam search (n best)
 ;	- resource bounded search (n nodes)
 ;	- α-β optimizations (killer heuristic and others)
+;	- a 'recursive wedge search', which tries to simulate 
 
 (define-module lib-ai
 
@@ -144,38 +145,38 @@
 			((drop-move moves (car trail)) => (λ (moves) (cons (car trail) moves)))
 			(else moves)))
 
-		(define (make-planner eval get-moves do-move eval-final allow-skip?)
+	(define (make-planner eval get-moves do-move eval-final allow-skip?)
 
-			(define (plan-ahead board color α β ply moves) ; → score x (move ...), being the best move sequence for *both* players
-				(if (= ply 0)
-					(values (eval board color) null)
-					(let ((opts (lift (get-moves board color) moves)))
-						(if (null? opts)
-							(let ((opp-moves (get-moves board (opponent-of color))))
-								(cond
-									((null? opp-moves) (values (eval-final board color) null))
-									(allow-skip? 
-										(lets ((oscore omoves (plan-ahead board (opponent-of color) (- 0 β) (- 0 α) ply (rest moves))))
-											(values (- 0 oscore) (cons no-move omoves))))
-									(else
-										; for example chess goes like this
-										(values lose null))))
-							(let loop ((opts opts) (α α) (best (cons (car opts) (rest moves))))
-								(cond
-									((null? opts) 
-										(values α best))
-									((< α β)
-										(lets
-											((n oms 
-												(plan-ahead (do-move board (car opts) color)
-													(opponent-of color) (- 0 β) (- 0 α)
-													(- ply 1) (rest moves)))
-											 (score (- 0 n)))
-											(if (> score α)
-												(loop (cdr opts) score (cons (car opts) oms))
-												(loop (cdr opts) α best))))
-									(else (values α best))))))))
-				plan-ahead)
+		(define (plan-ahead board color α β ply moves) ; → score x (move ...), being the best move sequence for *both* players
+			(if (eq? ply 0)
+				(values (eval board color) null)
+				(let ((opts (lift (get-moves board color) moves)))
+					(if (null? opts)
+						(let ((opp-moves (get-moves board (opponent-of color))))
+							(cond
+								((null? opp-moves) (values (eval-final board color) null))
+								(allow-skip? 
+									(lets ((oscore omoves (plan-ahead board (opponent-of color) (- 0 β) (- 0 α) ply (rest moves))))
+										(values (- 0 oscore) (cons no-move omoves))))
+								(else
+									; for example chess goes like this
+									(values lose null))))
+						(let loop ((opts opts) (α α) (best (cons (car opts) (rest moves))))
+							(cond
+								((null? opts) 
+									(values α best))
+								((< α β)
+									(lets
+										((n oms 
+											(plan-ahead (do-move board (car opts) color)
+												(opponent-of color) (- 0 β) (- 0 α)
+												(- ply 1) (rest moves)))
+										 (score (- 0 n)))
+										(if (> score α)
+											(loop (cdr opts) score (cons (car opts) oms))
+											(loop (cdr opts) α best))))
+								(else (values α best))))))))
+			plan-ahead)
 
 	(define (make-iterative-ply-player ply get-moves do-move eval eval-final allow-skip?)
 
@@ -193,27 +194,31 @@
 						null (iota 1 1 (+ ply 1))))
 				in)))
 
-	; for now, think maybe abve ms, not up to ms as it actually should be to be able 
-	; to make blitz variants of the game (--blitz n = allow max n minutes of thinking 
-	; time for players), which wouls also be useful to benchmark ais and heuristics.
+	;;; time bound player, stop planning after the given number of ms have passed
 
 	(define (now-ms)
 		(lets ((secs ms (clock)))
 			(+ (* secs 1000) ms)))
 
 	(define (make-time-bound-player ms get-moves do-move eval eval-final allow-skip?)
-
-		(define plan-ahead (make-planner eval get-moves do-move eval-final allow-skip?))
-		
+	
 		(λ (board in last color)
-			(values 
-				(let loop ((timeout (+ (now-ms) ms)) (trail null) (ply 1))
-					(if (> (now-ms) timeout)
-						(if (null? trail)
-							False
-							(car trail))
-						(lets ((score trail (plan-ahead board color lose win ply trail)))
-							(loop timeout trail (+ ply 1)))))
-				in)))
+			(lets ((timeout (+ (now-ms) ms))) ; when to return the result
+				(values
+					(let loop ((trail null) (ply 1))
+						(call/cc
+							(lambda (ret)
+								(lets 
+								 ((time-bounded-get-moves
+									(λ (board color)
+										(if (< (now-ms) timeout) 
+											(get-moves board color) 
+											(ret (if (null? trail) False (car trail))))))
+								  (plan-ahead 
+									(make-planner eval time-bounded-get-moves do-move eval-final allow-skip?))
+								  (score new-trail (plan-ahead board color lose win ply trail)))
+								(loop new-trail (+ ply 1))))))
+					in))))
+
 )
 
