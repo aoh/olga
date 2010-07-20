@@ -18,7 +18,6 @@ You are human. Pres s to skip a move.
 ,r "ai.scm"
 
 (import lib-args) ; command line argument handling
-(import lib-vt)	  ; basic terminal control
 (import lib-ai)	  ; olgame's ai stuff
 
 (define xo 3)
@@ -48,14 +47,22 @@ You are human. Pres s to skip a move.
 	(lets
 		((col 
 			(cond 
-				((eq? val black) #b00000111)
-				((eq? val white) #b11000000)
+				;((eq? val black) #b00000111)
+				;((eq? val white) #b11000000)
+				((eq? val black) #b00000000)
+				((eq? val white) #b11111111)
 				(else 
 					#b10010011)))
 		 (xp (* x cell))
 		 (yp (* y cell)))
 		(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 2) (- cell 2) col)))
 
+(define (highlight-cell x y col)
+	(lets
+		((xp (* x cell))
+		 (yp (* y cell)))
+		(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 2) (- cell 2) #b10011011)
+		))
 
 (define (print-board-xy board x y)
 	(grale-fill-rect 0 0 w h #b01010010)
@@ -181,11 +188,9 @@ You are human. Pres s to skip a move.
 					(list (opponent-of color) " moved to (" x "," y ")."))
 				(else (list (opponent-of color) " skipped the last move.")))))
 		(print-board-xy board x y)
-		;(print-moves moves color)
-		(print* last)
 		(if (null? moves)
 			(values False in)
-			(let loop ((in in) (x x) (y y))
+			(let loop ((x x) (y y))
 				(tuple-case (grale-wait-event)
 					((click btn xp yp)
 						(lets
@@ -195,9 +200,27 @@ You are human. Pres s to skip a move.
 							 (flips (get ff pos False)))
 							(if flips
 								(values (cons pos flips) in)
-								(loop in x y))))
-					(else
-						(loop in x y)))))))
+								(loop x y))))
+					((mouse-move xp yp)
+						(lets
+							((nx (div xp cell))
+							 (ny (div yp cell))
+							 (pos (xy->pos nx ny)))
+							(cond
+								((and (eq? nx x) (eq? ny y))
+									; hovering on same cell
+									(loop x y))
+								((get ff pos False) 
+									(update-cell x y (get board (xy->pos x y) 'blank))
+									(highlight-cell nx ny color)
+									(grale-update 0 0 w h)
+									(loop nx ny))
+								(else
+									(update-cell x y (get board (xy->pos x y) 'blank))
+									(grale-update 0 0 w h)
+									(loop nx ny)))))
+					(else is ev
+						(loop x y)))))))
 
 
 ;;; artificial stupidity begins
@@ -311,8 +334,6 @@ You are human. Pres s to skip a move.
 (import lib-match)
 
 (define (reversi args)
-	(start-grale)
-	(show "connecting to grale: " (grale-init w h))
 	(or 
 		(process-arguments (cdr args) command-line-rules usage-text
 			(λ (dict others)
@@ -323,6 +344,8 @@ You are human. Pres s to skip a move.
 						(print usage-text)
 						(print-rules command-line-rules))
 					(else
+						(start-grale)
+						(show "connecting to grale: " (grale-init w h))
 						(play-match dict empty-board print-board
 							pick-winner valid-moves do-move players '(0))))))
 		1))
