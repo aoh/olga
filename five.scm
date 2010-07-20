@@ -707,7 +707,7 @@
 		  (version "-V" "--version")
 		  ;(strict "-s" "--strict"
 		  ; comment "only win by exactly five stones (no more)")
-		  (difficulty "-d" "--difficulty" cook ,string->number
+		  (difficulty "-d" "--difficulty" cook ,string->integer
 			comment "difficulty level (1-7)"
 			default "3")
 		  )))

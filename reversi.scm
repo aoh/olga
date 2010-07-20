@@ -2,6 +2,7 @@
 ;;; reversi - it's like othello
 ;;;
 
+(import lib-grale)
 (define usage-text "Usage: reversi [args]")
 
 (define about-reversi
@@ -32,25 +33,38 @@ You are human. Pres s to skip a move.
 		((eq? val white) "○ ")
 		(else "· ")))
 
-(define s 8)
+(define s 8) ; n rows 
 (define (pos->xy pos) (values (rem pos s) (div pos s)))
 (define (xy->pos x y) (+ (* y s) x))
 
+(define w 320)
+(define h w)
+
+(define cell (div (min w h) s)) ; size of cells to draw
+
 (define cells (let ((max (* s s))) (λ () (iota 0 1 max))))
 
-(define (position-cursor x y)
-	(set-cursor (+ xo (* x 2)) (+ yo y)))
+(define (update-cell x y val)
+	(lets
+		((col 
+			(cond 
+				((eq? val black) #b00000111)
+				((eq? val white) #b11000000)
+				(else 
+					#b10010011)))
+		 (xp (* x cell))
+		 (yp (* y cell)))
+		(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 2) (- cell 2) col)))
+
 
 (define (print-board-xy board x y)
-	(clear-screen)
+	(grale-fill-rect 0 0 w h #b01010010)
 	(for 42 (iota 0 1 s)
 		(λ (_ y)
-			(set-cursor xo (+ y yo))
 			(for 42 (iota 0 1 s)
 				(λ (_ x)
-					(display (render-cell (get board (+ x (* y s)) 'blank)))))))
-	(position-cursor x y)
-	(flush-port 1))
+					(update-cell x y (get board (+ x (* y s)) 'blank))))))
+	(grale-update 0 0 w h))
 
 (define (move->xy move)
 	(if move (pos->xy (car move)) (values 1 1)))
@@ -59,14 +73,14 @@ You are human. Pres s to skip a move.
 	(lets ((x y (move->xy move)))
 		(print-board-xy board x y)))
 
-(define (print-moves moves color)
-	(let ((marker (if (eq? color 'black) "•" "◦")))
-		(for-each
-			(λ (pos)
-				(set-cursor (+ xo (* (rem pos s) 2)) (+ yo (div pos s)))
-				(display marker))
-			(map car moves))
-		(flush-port 1)))
+;(define (print-moves moves color)
+;	(let ((marker (if (eq? color 'black) "•" "◦")))
+;		(for-each
+;			(λ (pos)
+;				(set-cursor (+ xo (* (rem pos s) 2)) (+ yo (div pos s)))
+;				(display marker))
+;			(map car moves))
+;		(flush-port 1)))
 	
 (define (move-focus board x y dir)
 	(cond
@@ -167,38 +181,23 @@ You are human. Pres s to skip a move.
 					(list (opponent-of color) " moved to (" x "," y ")."))
 				(else (list (opponent-of color) " skipped the last move.")))))
 		(print-board-xy board x y)
-		(print-moves moves color)
-		(set-cursor 1 12)
+		;(print-moves moves color)
 		(print* last)
 		(if (null? moves)
 			(values False in)
 			(let loop ((in in) (x x) (y y))
-				(position-cursor x y)
-				(flush-port 1)
-				(cond
-					((null? in)
-						(values 'quit in))
-					((pair? in)
-						(tuple-case (car in)
-							((arrow dir)
-								(lets ((x y (move-focus board x y dir)))
-									(loop (cdr in) x y)))
-							((key k)
-								(case k
-									((13 32) ; [enter space] move here (if applicable)
-										(lets ((pos (xy->pos x y)) (flips (get ff pos False)))
-											(if flips
-												(values (cons pos flips) (cdr in))
-												(loop (cdr in) x y))))
-									((113) ; [q]uit
-										(values 'quit (cdr in)))
-									((115) ; [s]kip
-										(values False (cdr in)))
-									(else
-										(loop (cdr in) x y))))
-							(else
-								(loop (cdr in) x y))))
-					(else (loop (in) x y)))))))
+				(tuple-case (grale-wait-event)
+					((click btn xp yp)
+						(lets
+							((x (div xp cell))  ;; fixme: round to nearest instead
+							 (y (div yp cell))
+							 (pos (xy->pos x y))
+							 (flips (get ff pos False)))
+							(if flips
+								(values (cons pos flips) in)
+								(loop in x y))))
+					(else
+						(loop in x y)))))))
 
 
 ;;; artificial stupidity begins
@@ -294,7 +293,7 @@ You are human. Pres s to skip a move.
 		  (white "-w" "--white" cook ,choose-player default "normal" comment "choose white player")
 		  ;(first "-s" "--start" cook ,choose-side default "black" comment "which player starts")
 		  ;(board "-b" "--board" cook ,string->board default ,default-board comment "board layout")
-		  (matches "-n" "--matches" default "1" cook ,string->number check ,(λ x (and (number? x) (> x 0))))
+		  (matches "-n" "--matches" default "1" cook ,string->integer check ,(λ x (and (number? x) (> x 0))))
 		  )))
 
 (define (get2 board x y def) (get board (xy->pos x y) def))
@@ -312,6 +311,8 @@ You are human. Pres s to skip a move.
 (import lib-match)
 
 (define (reversi args)
+	(start-grale)
+	(show "connecting to grale: " (grale-init w h))
 	(or 
 		(process-arguments (cdr args) command-line-rules usage-text
 			(λ (dict others)

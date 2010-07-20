@@ -340,7 +340,7 @@ Pressing q ends the game.
 		  (help  "-h" "--help")
 		  (black "-b" "--black" cook ,choose-player default "human" comment "choose black player")
 		  (white "-w" "--white" cook ,choose-player default "normal" comment "choose white player")
-		  (matches "-n" "--matches" default "1" cook ,string->number check ,(λ x (and (number? x) (> x 0))))
+		  (matches "-n" "--matches" default "1" cook ,string->integer check ,(λ x (and (number? x) (> x 0))))
 		  )))
 
 (define (board-full? board)

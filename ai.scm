@@ -18,7 +18,7 @@
 		make-time-bound-player 		; ms get-moves do-move eval eval-final allow-skip?
 	)
 
-	(import lib-random)
+	;(import lib-random)
 	(import lib-vt) ; debugging
 
 	;;; all games are conceptually between black and white 

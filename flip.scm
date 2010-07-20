@@ -28,7 +28,7 @@ fail to remember where, and what it was called.
 		`((about "-A" "--about")
 		  (help  "-h" "--help")
 		  (clean  "-c" "--clean" comment "experiment with a clean start")
-		  (size  "-s" "--size" comment "board size" default "5" cook ,string->number))))
+		  (size  "-s" "--size" comment "board size" default "5" cook ,string->natural))))
 
 (define (flip-cell size)
 	(define max (expt size 2))
