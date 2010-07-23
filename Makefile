@@ -22,7 +22,7 @@ grale: grale.c
 	gcc -O2 -lSDL -o grale grale.c
 
 test: grale olgame
-	PATH=$PATH:. ./olgame
+	PATH=$(PATH):. ./olgame
 	
 #
 #everything: bin/five bin/soko bin/sudoku bin/flip bin/reversi bin/ataxx

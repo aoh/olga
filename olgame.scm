@@ -57,14 +57,16 @@
 		(tuple 'dir  False "princess series"
 			(list
 				(tuple 'proc False "rescue the princess" princess-rescue)
+				(tuple 'proc False "rescue the prince" prince-rescue)
 				(tuple 'proc False "rescue the princess II" princess-rescue)
 				(tuple 'proc False "rescue the princess III" princess-rescue)
-				(tuple 'proc False "rescue the princess IV (EU)" princess-rescue)))
-		(tuple 'proc False "rescue the princess" princess-rescue)
-		(tuple 'proc False "rescue the prince" prince-rescue)
+				(tuple 'proc False "rescue the princess IV (EU)" princess-rescue)
+				(tuple 'proc False "rescue the prince V" prince-rescue)))
 		olgame-games))
 
 ,r "games/reversi.scm"
+
+; ,r "games/ataxx.scm"
 
 (define (choose-nearest-row opts y row-height)
 	(fold

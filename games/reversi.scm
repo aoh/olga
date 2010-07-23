@@ -16,6 +16,116 @@
 	(define xo 3)
 	(define yo 2)
 
+	(define game-piece
+		(build-sprite 
+			'(21 
+			+ - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - x x x x x - - - - - - - -
+			- - - - - - x x x x x x x x x - - - - - -
+			- - - - - x x x x x x x x x x x - - - - -
+			- - - - x x x x x x x x x x x x x - - - -
+			- - - - x x x x x x x x x x x x x - - - -
+			- - - x x x x x x x x x x x x x x x - - -
+			- - - x x x x x x x x x x x x x x x - - -
+			- - - x x x x x x x x x x x x x x x - - -
+			- - - x x x x x x x x x x x x x x x - - -
+			- - - x x x x x x x x x x x x x x x - - -
+			- - - - x x x x x x x x x x x x x - - - -
+			- - - - x x x x x x x x x x x x x - - - -
+			- - - - - x x x x x x x x x x x - - - - -
+			- - - - - - x x x x x x x x x - - - - - -
+			- - - - - - - - x x x x x - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			)))
+
+	(define game-piece-border
+		(build-sprite 
+			'(21 
+			+ - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - x x x x x - - - - - - - -
+			- - - - - - x x - - - - - x x - - - - - -
+			- - - - - x - - - - - - - - - x - - - - -
+			- - - - x - - - - - - - - - - - x - - - -
+			- - - - x - - - - - - - - - - - x - - - -
+			- - - x - - - - - - - - - - - - - x - - -
+			- - - x - - - - - - - - - - - - - x - - -
+			- - - x - - - - - - - - - - - - - x - - -
+			- - - x - - - - - - - - - - - - - x - - -
+			- - - x - - - - - - - - - - - - - x - - -
+			- - - - x - - - - - - - - - - - x - - - -
+			- - - - x - - - - - - - - - - - x - - - -
+			- - - - - x - - - - - - - - - x - - - - -
+			- - - - - - x x - - - - - x x - - - - - -
+			- - - - - - - - x x x x x - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
+			)))
+
+	(define free-piece
+		(build-sprite 
+			'(21
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - x - - x - - x - - o - - x - - x - - x -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+			)))
+
+	(define highlight-piece
+		(build-sprite 
+			'(21
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - x x - x x - - - - - - - -
+	      - - - - - - - - x - - - x - - - - - - - -
+	      - - - - - - - x - - + - - x - - - - - - -
+	      - - - - - - - - x - - - x - - - - - - - -
+	      - - - - - - - - x x - x x - - - - - - - -
+	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+			)))
+
+	(if (not free-piece) (error "free piece bad " free-piece))
+	(if (not game-piece) (error "game piece bad " game-piece))
+	(if (not highlight-piece) (error "highlight piece bad " highlight-piece))
+
+	(define bgcolor #b00001101)
+
 	(define black 'black)
 	(define white 'white)
 
@@ -27,35 +137,43 @@
 	(define w 640)
 	(define h 480)
 
-	(define cell (div (min w h) s)) ; size of cells to draw
+	; size of cells to draw
+	(define cell 21)
+	; (div (min w h) s)
 
 	(define cells (let ((max (* s s))) (λ () (iota 0 1 max))))
 
 	(define (update-cell x y val)
 		(if (and (< x s) (< y s))
 			(lets
-				((col 
-					(cond 
-						;((eq? val black) #b00000111)
-						;((eq? val white) #b11000000)
-						((eq? val black) #b00000000)
-						((eq? val white) #b11111111)
-						(else 
-							#b00001001)))
-				 (xp (* x cell))
+				((xp (* x cell))
 				 (yp (* y cell)))
-				(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) col))))
+				(cond
+					((eq? val black)
+						(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b00000000 free-piece)
+						(grale-puts xp yp #b00000000 game-piece)
+						(grale-puts xp yp #b01001001 game-piece-border))
+					((eq? val white)
+						(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b00000000 free-piece)
+						(grale-puts xp yp #b11111111 game-piece)
+						(grale-puts xp yp #b10110110 game-piece-border))
+					(else
+						(grale-fill-rect xp yp cell cell bgcolor)
+						(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b00000000 free-piece)
+						)))))
 
 	(define (highlight-cell x y col)
 		(if (and (< x s) (< y s))
 			(lets
 				((xp (* x cell))
 				 (yp (* y cell)))
-				(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) #b10011011)
+				;(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) #b10011011)
+				(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b11111100 highlight-piece)
 				)))
 
+
 	(define (print-board-xy board x y)
-		(grale-fill-rect 0 0 w h #b00001101)
+		(grale-fill-rect 0 0 w h bgcolor)
 		(for 42 (iota 0 1 s)
 			(λ (_ y)
 				(for 42 (iota 0 1 s)
@@ -318,6 +436,9 @@
 
 	(define reversi-node
 		(tuple 'proc False "Reversi" reversi))
+
+
+
 )
 
 ;; add reversi to olgame indx
