@@ -2,8 +2,9 @@
 ;;; One game to rule them all!!1
 ;;;
 
-;; todo: make a simple windowed menu-generation system
-; rough idea: pass information in a ff with state-transformers mapped to bounding boxes of elements. selections, checkboxes, sliders etc initially
+; olgame has a simple program-selection menu
+; programs are in separate libraries under games/
+; they add themselves to the directory tree exposing only icon, name and program entry point
 
 (import lib-grale)
 (import lib-args)
@@ -63,6 +64,8 @@
 		(tuple 'proc False "rescue the prince" prince-rescue)
 		olgame-games))
 
+,r "games/reversi.scm"
+
 (define (choose-nearest-row opts y row-height)
 	(fold
 		(λ (best yp node)
@@ -87,6 +90,7 @@
 	(clear-screen)
 	(grale-put-text font-8px 10 20 #b00011100 
 		(foldr string-append "" (list "You now have " (runes->string (render (length node) null)) " choices")))
+	(grale-puts (- w 10) 10 #b00011100 owl-logo)
 	(define opts
 		(fold
 			(λ (opts thing)
@@ -107,7 +111,6 @@
 	(wait-row-click (del opts 'y)))
 
 (define (olgame-root node)
-	(grale-put-text font-8px 10 10 #b00011100 "Welcome to Olgame green wizard")
 	(paint-screen)
 	(let ((choice (main-menu node)))
 		(tuple-case choice
@@ -157,4 +160,7 @@
 		1))
 
 
-(olgame '(olgame))
+; (olgame '(olgame))
+
+olgame
+
