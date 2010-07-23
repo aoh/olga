@@ -23,18 +23,6 @@
 
 (define olgame-games null)
 
-(define (grale-wait-click)
-	(let ((ev (grale-wait-event)))
-		(if (not ev) 
-			(begin
-				(print "wait-click: disconnected") 
-				(values False False))
-			(tuple-case ev
-				((click btn x y)
-					(values x y))
-				(else
-					(grale-wait-click))))))
-
 (define (paint-screen)
 	(grale-update 0 0 w h))
 
@@ -42,16 +30,37 @@
 	(grale-fill-rect 0 0 w h 0)
 	(paint-screen))
 
+(define (grale-wait-click)
+	(paint-screen)
+	(let loop ((ev (grale-wait-event)))
+		(if ev
+			(tuple-case ev
+				((click btn x y)
+					(values x y))
+				(else
+					(loop (grale-wait-event))))
+			(begin
+				(print "grale got disconnected")
+				(values False False)))))
+
 (define (princess-rescue)
-	(print "pricess rescued \o/"))
+	(grale-put-text font-8px 100 100 #b11101100 "You rescued the princess")
+	(lets ((x y (grale-wait-click))) 42))
 
 (define (prince-rescue)
-	(print "price rescued \o/"))
+	(grale-put-text font-8px 100 100 #b00001101 "You rescued the prince")
+	(lets ((x y (grale-wait-click))) 42))
 
 (define olgame-games
 	(ilist
+		(tuple 'dir  False "princess series"
+			(list
+				(tuple 'proc False "rescue the princess" princess-rescue)
+				(tuple 'proc False "rescue the princess II" princess-rescue)
+				(tuple 'proc False "rescue the princess III" princess-rescue)
+				(tuple 'proc False "rescue the princess IV (EU)" princess-rescue)))
 		(tuple 'proc False "rescue the princess" princess-rescue)
-		(tuple 'proc False "rescue the pricne" prince-rescue)
+		(tuple 'proc False "rescue the prince" prince-rescue)
 		olgame-games))
 
 (define (choose-nearest-row opts y row-height)
@@ -76,22 +85,30 @@
 	
 (define (main-menu node)
 	(clear-screen)
-	(grale-put-text font-8px 10 20 #b00011100 "You see a menu.")
+	(grale-put-text font-8px 10 20 #b00011100 
+		(foldr string-append "" (list "You now have " (runes->string (render (length node) null)) " choices")))
 	(define opts
 		(fold
 			(λ (opts thing)
 				(lets
 					((y (get opts 'y 40))
 					 (label (ref thing 3)))
-					(grale-put-text font-8px 20 y #b11111100 label)
+					(grale-put-text font-8px 20 y 
+						(cond
+							((eq? (ref thing 1) 'proc) #b00011100)
+							((eq? (ref thing 1) 'dir) #b00000011)
+							((eq? (ref thing 1) 'back) #b11111100)
+							(else #b11111111))
+						label)
 					(put (put opts 'y (+ y 15)) (- y 8) thing))) ; put row top
-			False node))
+			False 
+			(append  node (list(tuple 'back False "exit")))))
 	(paint-screen)
 	(wait-row-click (del opts 'y)))
 
 (define (olgame-root node)
-	(grale-put-text font-8px 10 10 #b00011100 "Welcome to Olgame, green wizard.")
-	(grale-update 0 0 w h)
+	(grale-put-text font-8px 10 10 #b00011100 "Welcome to Olgame green wizard")
+	(paint-screen)
 	(let ((choice (main-menu node)))
 		(tuple-case choice
 			((quit)
@@ -99,6 +116,14 @@
 			((proc ico label code)
 				(clear-screen)
 				(code)
+				(clear-screen)
+				(olgame-root node))
+			((back ico label)
+				(clear-screen)
+				'done)
+			((dir ico label stuff)
+				(clear-screen)
+				(olgame-root stuff)
 				(clear-screen)
 				(olgame-root node))
 			(else is thing
