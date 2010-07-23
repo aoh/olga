@@ -52,20 +52,20 @@ You are human. Pres s to skip a move.
 				((eq? val black) #b00000000)
 				((eq? val white) #b11111111)
 				(else 
-					#b10010011)))
+					#b00001001)))
 		 (xp (* x cell))
 		 (yp (* y cell)))
-		(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 2) (- cell 2) col)))
+		(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) col)))
 
 (define (highlight-cell x y col)
 	(lets
 		((xp (* x cell))
 		 (yp (* y cell)))
-		(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 2) (- cell 2) #b10011011)
+		(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) #b10011011)
 		))
 
 (define (print-board-xy board x y)
-	(grale-fill-rect 0 0 w h #b01010010)
+	(grale-fill-rect 0 0 w h #b00001101)
 	(for 42 (iota 0 1 s)
 		(λ (_ y)
 			(for 42 (iota 0 1 s)
