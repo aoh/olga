@@ -5,7 +5,7 @@
 
 (define-module lib-match
 	
-	(export play-match)
+	(export play-match match)
 
 	(import lib-vt)
 
@@ -30,25 +30,30 @@
 
 	; -> black | white | draw | quit
 	(define (match board in pos next player opponent printer pick-winner valid-moves do-move)
-		(printer board pos)
-		(cond
-			((pick-winner board) =>
-				(λ (winner) 
-					(show "Winner is " winner)
-					(report-winner winner) winner))
-			(else
-				(lets ((move in (player board in pos next)))
-					(cond
-						((not move)
-							(match board in pos (opponent-of next) opponent player printer pick-winner valid-moves do-move))
-						((eq? move 'quit)
-							'quit)
-						((mem equal? (valid-moves board next) move)
-							(match (do-move board move next) in 
-								move (opponent-of next) 
-								opponent player printer pick-winner valid-moves do-move))
-						(else
-							(disqualify next "invalid move.")))))))
+		(let loop ((board board) (pos pos) (next next) (player player) (opponent opponent) (skipped? False))
+			;(print (list 'match 'last pos 'next next 'skipped skipped?))
+			(printer board pos)
+			(cond
+				((pick-winner board False) =>
+					(λ (winner) winner))
+				(else
+					(lets ((move in (player board in pos next)))
+						(cond
+							((not move)
+								(if skipped?
+									; neither player can or is willing to move
+									(begin
+										(print "deadlock")
+										(pick-winner board True))
+									(loop board pos (opponent-of next) opponent player True)))
+							((eq? move 'quit)
+								'quit)
+							((mem equal? (valid-moves board next) move)
+								(loop (do-move board move next) 
+									move (opponent-of next) 
+									opponent player False))
+							(else
+								(disqualify next "invalid move."))))))))
 
 
 	; names have to be printed differently, because rendering asks function
@@ -76,6 +81,8 @@
 					res)
 				0)
 			(print "Quitter.")))
+
+; (start-match black white empty-board (get args 'matches 1) print-board pick-winner valid-moves do-move players start)))
 
 	(define (start-match black-player white-player empty-board games printer pick-winner valid-moves do-move players start)
 		(let loop ((status False) (bp black-player) (wp white-player) (games games))

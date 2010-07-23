@@ -32,25 +32,27 @@
 	(define cells (let ((max (* s s))) (λ () (iota 0 1 max))))
 
 	(define (update-cell x y val)
-		(lets
-			((col 
-				(cond 
-					;((eq? val black) #b00000111)
-					;((eq? val white) #b11000000)
-					((eq? val black) #b00000000)
-					((eq? val white) #b11111111)
-					(else 
-						#b00001001)))
-			 (xp (* x cell))
-			 (yp (* y cell)))
-			(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) col)))
+		(if (and (< x s) (< y s))
+			(lets
+				((col 
+					(cond 
+						;((eq? val black) #b00000111)
+						;((eq? val white) #b11000000)
+						((eq? val black) #b00000000)
+						((eq? val white) #b11111111)
+						(else 
+							#b00001001)))
+				 (xp (* x cell))
+				 (yp (* y cell)))
+				(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) col))))
 
 	(define (highlight-cell x y col)
-		(lets
-			((xp (* x cell))
-			 (yp (* y cell)))
-			(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) #b10011011)
-			))
+		(if (and (< x s) (< y s))
+			(lets
+				((xp (* x cell))
+				 (yp (* y cell)))
+				(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) #b10011011)
+				)))
 
 	(define (print-board-xy board x y)
 		(grale-fill-rect 0 0 w h #b00001101)
@@ -101,8 +103,8 @@
 					(cells))
 				True)))
 
-	(define (pick-winner board)
-		(if (board-full? board)
+	(define (pick-winner board game-over?)
+		(if (or game-over? (board-full? board))
 			(let ((score
 				(ff-fold (λ (n pos val) (+ n (if (eq? val black) 1 -1))) 0 board)))
 				(cond
@@ -238,7 +240,7 @@
 	(define lose-score -65535)
 
 	(define (eval-final board me)
-		(let ((winner (pick-winner board)))
+		(let ((winner (pick-winner board True)))
 			(cond
 				((eq? winner me) win-score)
 				((eq? winner 'draw) 0)
@@ -284,7 +286,29 @@
 			(pos->xy (car maybe-move))
 			(values 1 1)))
 
+	; (match empty-board (vt-events 0) start black bp wp printer pick-winner valid-moves do-move)
+
+	(define (show-result text)
+		(grale-fill-rect 20 20 100 20 0)
+		(grale-put-text font-8px (+ 20 2) (+ 20 14) #b11111111 text)
+		(paint-screen)
+		(lets ((x y (grale-wait-click))) 42))
+
+	; no menus or settings yet, just play a default game and exit
 	(define (reversi)
+		(define winner 
+			(match empty-board 42 '(0) black human-player ai-normal print-board pick-winner valid-moves do-move))
+		(cond
+			((eq? winner black)
+				(show-result "Black player wins"))
+			((eq? winner white)
+				(show-result "White player wins"))
+			((eq? winner 'draw)
+				(show-result "A draw"))
+			(else
+				(show-result "Something completely different"))))
+
+	(define (reversi-no)
 		(play-match 
 			(list->ff
 				(list
