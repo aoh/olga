@@ -15,8 +15,8 @@
 		  (help  "-h" "--help")
 		  )))
 
-(define w 640)
-(define h 480)
+(define w 320)
+(define h 200)
 
 ; a list of
 ;   #(proc <icon>|False <label> start-thunk)

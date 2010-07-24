@@ -104,13 +104,13 @@
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
-	      - - - - - - - - - - x - - - - - - - - - -
-	      - - - - - - - - x x - x x - - - - - - - -
-	      - - - - - - - - x - - - x - - - - - - - -
-	      - - - - - - - x - - + - - x - - - - - - -
-	      - - - - - - - - x - - - x - - - - - - - -
-	      - - - - - - - - x x - x x - - - - - - - -
-	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - x x x - - - - - - - - -
+	      - - - - - - - - x x x x x - - - - - - - -
+	      - - - - - - - x x x x x x x - - - - - - -
+	      - - - - - - - x x x o x x x - - - - - - -
+	      - - - - - - - x x x x x x x - - - - - - -
+	      - - - - - - - - x x x x x - - - - - - - -
+	      - - - - - - - - - x x x - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
@@ -124,7 +124,7 @@
 	(if (not game-piece) (error "game piece bad " game-piece))
 	(if (not highlight-piece) (error "highlight piece bad " highlight-piece))
 
-	(define bgcolor #b00001101)
+	(define bgcolor #b10010001)
 
 	(define black 'black)
 	(define white 'white)
@@ -134,8 +134,8 @@
 	(define (xy->pos x y) (+ (* y s) x))
 
 	; will be static later 
-	(define w 640)
-	(define h 480)
+	(define w 320)
+	(define h 200)
 
 	; size of cells to draw
 	(define cell 21)
@@ -168,7 +168,7 @@
 				((xp (* x cell))
 				 (yp (* y cell)))
 				;(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) #b10011011)
-				(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b11111100 highlight-piece)
+				(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b00011000 highlight-piece)
 				)))
 
 
