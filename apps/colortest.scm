@@ -8,22 +8,13 @@
 	(define w 320)
 	(define h 200)
 
-	(define cols 20)
-	(define rows (div 256 (+ cols 1)))
+	(define s 12)
 	
-	(define col-width (div w cols))
-	(define col-height (div h rows))
-
 	(define (color-test)
 		(for-each
 			(λ (n)
-				(lets ((row col (quotrem n cols)))
-					(grale-fill-rect
-						(* col col-width)
-						(* row col-height)
-						col-width
-						col-height
-						n)))
+				(lets ((col row (quotrem n s)))
+					(grale-fill-rect (* col s) (* row s) s s n)))
 			(iota 0 1 256))
 		(grale-update 0 0 w h)
 		(lets ((x y (grale-wait-click)))

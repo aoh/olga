@@ -54,6 +54,7 @@
 
 ,r "games/reversi.scm"
 ,r "apps/colortest.scm"
+,r "apps/keytest.scm"
 ; ,r "games/ataxx.scm"
 
 (define olgame-games

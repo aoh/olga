@@ -32,7 +32,8 @@
 	(define (match board in pos next player opponent printer pick-winner valid-moves do-move)
 		(let loop ((board board) (pos pos) (next next) (player player) (opponent opponent) (skipped? False))
 			;(print (list 'match 'last pos 'next next 'skipped skipped?))
-			(printer board pos)
+			;(printer board pos)
+			((get in 'print-board (λ (a b) a)) board pos)
 			(cond
 				((pick-winner board False) =>
 					(λ (winner) winner))
@@ -81,8 +82,6 @@
 					res)
 				0)
 			(print "Quitter.")))
-
-; (start-match black white empty-board (get args 'matches 1) print-board pick-winner valid-moves do-move players start)))
 
 	(define (start-match black-player white-player empty-board games printer pick-winner valid-moves do-move players start)
 		(let loop ((status False) (bp black-player) (wp white-player) (games games))

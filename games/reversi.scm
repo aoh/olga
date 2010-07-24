@@ -133,7 +133,8 @@
 	(if (not game-piece) (error "game piece bad " game-piece))
 	(if (not highlight-piece) (error "highlight piece bad " highlight-piece))
 
-	(define bgcolor #b10010001)
+	;(define bgcolor #b10010001)
+	(define bgcolor #b00000000)
 
 	(define black 'black)
 	(define white 'white)
@@ -159,15 +160,19 @@
 				((xp (+ (* x cell) cell-mid))
 				 (yp (+ (* y cell) cell-mid)))
 				(cond
-					((eq? val black)
-						(grale-puts xp yp #b00000000 game-piece)
-						(grale-puts xp yp #b01001001 game-piece-border))
+					((eq? val black) ; blue
+					 	(grale-puts xp yp #b00000010 game-piece)
+					 	(grale-puts xp yp #b00000001 game-piece-border)
+					)
 					((eq? val white)
-						(grale-puts xp yp #b11111111 game-piece)
-						(grale-puts xp yp #b10110110 game-piece-border))
+					;  	(grale-puts xp yp #b00011100 game-piece)
+					;  	(grale-puts xp yp #b00010000 game-piece-border)
+					 	(grale-puts xp yp #b11011011 game-piece)
+					 	(grale-puts xp yp #b01001001 game-piece-border)
+					)
 					(else
 						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell bgcolor)
-						(grale-puts xp yp #b01001001 free-piece)
+					 	(grale-puts xp yp #b00000001 free-piece)
 						)))))
 
 	(define (highlight-cell x y col)
@@ -178,7 +183,6 @@
 				;(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) #b10011011)
 				(grale-puts (+ xp cell-mid) (+ yp cell-mid) #b00011000 highlight-piece)
 				)))
-
 
 	(define (print-board-default board x y)
 		(grale-fill-rect 0 0 w h bgcolor)
@@ -295,7 +299,6 @@
 					(last-move
 						(list (opponent-of color) " moved to (" x "," y ")."))
 					(else (list (opponent-of color) " skipped the last move.")))))
-			((get opts 'print-board 'bug) board x y)
 			(if (null? moves)
 				(values False opts)
 				(let loop ((x x) (y y))
@@ -430,7 +433,7 @@
 	(define (reversi)
 		(define winner 
 			(match empty-board 
-				(put False 'print-board print-board-default)
+				(put False 'print-board print-board)
 				'(0) black human-player ai-normal print-board pick-winner valid-moves do-move))
 		(cond
 			((eq? winner black)
