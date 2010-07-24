@@ -2,8 +2,20 @@
 ;;; reversi - it's like othello
 ;;;
 
+;; todo: menus, close [risti], config [työkalu], settings [menu scroll]
+;;  - menu-napit vaihtavat väriä hoveroidessa
+;;  - settings on state-transformer josta saadaan print-board yms
+;;	 - pelin loppuessa voisi tallettaa tilan kaikissa? 
+;;		+ eli menussa ohjelman paluuarvo aina talletetaan proc:ksi (jos se on jotain muotoa)
+
 ,r "ai.scm"
 ,r "match.scm"
+
+; switch the input parameter from match to opts (ff of property -> value)
+; store game parameters there
+;	- initially board printing function
+; an exit button and menu button
+; use something like olgame's main menu for menus
 
 (define-module olgame-reversi
 
@@ -13,13 +25,10 @@
 
 	(export reversi-node)
 
-	(define xo 3)
-	(define yo 2)
-
 	(define game-piece
 		(build-sprite 
 			'(21 
-			+ - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
 			- - - - - - - - - - - - - - - - - - - - -
 			- - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - x x x x x - - - - - - - -
@@ -29,7 +38,7 @@
 			- - - - x x x x x x x x x x x x x - - - -
 			- - - x x x x x x x x x x x x x x x - - -
 			- - - x x x x x x x x x x x x x x x - - -
-			- - - x x x x x x x x x x x x x x x - - -
+			- - - x x x x x x x o x x x x x x x - - -
 			- - - x x x x x x x x x x x x x x x - - -
 			- - - x x x x x x x x x x x x x x x - - -
 			- - - - x x x x x x x x x x x x x - - - -
@@ -45,7 +54,7 @@
 	(define game-piece-border
 		(build-sprite 
 			'(21 
-			+ - - - - - - - - - - - - - - - - - - - -
+			- - - - - - - - - - - - - - - - - - - - -
 			- - - - - - - - - - - - - - - - - - - - -
 			- - - - - - - - - - - - - - - - - - - - -
 			- - - - - - - - x x x x x - - - - - - - -
@@ -55,7 +64,7 @@
 			- - - - x - - - - - - - - - - - x - - - -
 			- - - x - - - - - - - - - - - - - x - - -
 			- - - x - - - - - - - - - - - - - x - - -
-			- - - x - - - - - - - - - - - - - x - - -
+			- - - x - - - - - - + - - - - - - x - - -
 			- - - x - - - - - - - - - - - - - x - - -
 			- - - x - - - - - - - - - - - - - x - - -
 			- - - - x - - - - - - - - - - - x - - - -
@@ -72,25 +81,25 @@
 		(build-sprite 
 			'(21
 	      - - - - - - - - - - - - - - - - - - - - -
-	      - - - - - - - - - - x - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
-	      - - - - - - - - - - x - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
-	      - - - - - - - - - - x - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
-	      - x - - x - - x - - o - - x - - x - - x -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
-	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - o - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
-	      - - - - - - - - - - x - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
-	      - - - - - - - - - - x - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
+	      - - - - - - - - - - - - - - - - - - - - -
 	      - - - - - - - - - - - - - - - - - - - - -
 			)))
 
@@ -138,28 +147,27 @@
 	(define h 200)
 
 	; size of cells to draw
-	(define cell 21)
-	; (div (min w h) s)
+	(define cell
+	 (div (min w h) s))
+	(define cell-mid (>> cell 1))
 
-	(define cells (let ((max (* s s))) (λ () (iota 0 1 max))))
+	(define cells (let ((max (* s s))) (iota 0 1 max)))
 
 	(define (update-cell x y val)
 		(if (and (< x s) (< y s))
 			(lets
-				((xp (* x cell))
-				 (yp (* y cell)))
+				((xp (+ (* x cell) cell-mid))
+				 (yp (+ (* y cell) cell-mid)))
 				(cond
 					((eq? val black)
-						(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b00000000 free-piece)
 						(grale-puts xp yp #b00000000 game-piece)
 						(grale-puts xp yp #b01001001 game-piece-border))
 					((eq? val white)
-						(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b00000000 free-piece)
 						(grale-puts xp yp #b11111111 game-piece)
 						(grale-puts xp yp #b10110110 game-piece-border))
 					(else
-						(grale-fill-rect xp yp cell cell bgcolor)
-						(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b00000000 free-piece)
+						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell bgcolor)
+						(grale-puts xp yp #b01001001 free-piece)
 						)))))
 
 	(define (highlight-cell x y col)
@@ -168,11 +176,11 @@
 				((xp (* x cell))
 				 (yp (* y cell)))
 				;(grale-fill-rect (+ xp 1) (+ yp 1) (- cell 1) (- cell 1) #b10011011)
-				(grale-puts (+ xp (>> cell 1)) (+ yp (>> cell 1)) #b00011000 highlight-piece)
+				(grale-puts (+ xp cell-mid) (+ yp cell-mid) #b00011000 highlight-piece)
 				)))
 
 
-	(define (print-board-xy board x y)
+	(define (print-board-default board x y)
 		(grale-fill-rect 0 0 w h bgcolor)
 		(for 42 (iota 0 1 s)
 			(λ (_ y)
@@ -186,7 +194,7 @@
 
 	(define (print-board board move)
 		(lets ((x y (move->xy move)))
-			(print-board-xy board x y)))
+			(print-board-default board x y)))
 
 	;(define (print-moves moves color)
 	;	(let ((marker (if (eq? color 'black) "•" "◦")))
@@ -218,7 +226,7 @@
 			(λ (ret) 
 				(for-each 
 					(λ (pos) (if (eq? (get board pos 'blank) 'blank) (ret False)))
-					(cells))
+					cells)
 				True)))
 
 	(define (pick-winner board game-over?)
@@ -261,7 +269,7 @@
 							ok
 							(cons (cons pos flips) ok)))
 					ok))
-			null (cells)))
+			null cells))
 
 	(define (valid-move? board color move)
 		(mem equal? (valid-moves board color) move))
@@ -274,7 +282,7 @@
 				(cons (+ (* 4 s) 3) black)
 				(cons (+ (* 4 s) 4) white))))
 
-	(define (human-player board in last-move color)
+	(define (human-player board opts last-move color)
 		(lets 
 			((moves (valid-moves board color))
 			 (pos (if last-move (car last-move) (xy->pos 1 1)))
@@ -287,9 +295,9 @@
 					(last-move
 						(list (opponent-of color) " moved to (" x "," y ")."))
 					(else (list (opponent-of color) " skipped the last move.")))))
-			(print-board-xy board x y)
+			((get opts 'print-board 'bug) board x y)
 			(if (null? moves)
-				(values False in)
+				(values False opts)
 				(let loop ((x x) (y y))
 					(tuple-case (grale-wait-event)
 						((click btn xp yp)
@@ -298,9 +306,15 @@
 								 (y (div yp cell))
 								 (pos (xy->pos x y))
 								 (flips (get ff pos False)))
-								(if flips
-									(values (cons pos flips) in)
-									(loop x y))))
+								(cond
+									; click outside of board quits for now. should really call the opts to see which 
+									; if any menu button was hit and act accordingly
+									((>= x s)
+										(values 'quit opts))
+									(flips
+										(values (cons pos flips) opts))
+									(else
+										(loop x y)))))
 						((mouse-move xp yp)
 							(lets
 								((nx (div xp cell))
@@ -327,7 +341,7 @@
 
 	(define scores
 		(list->ff
-			(zip cons (cells)
+			(zip cons cells
 				(list 50  -9  4  2  2  4  -9 50
 						-9  -9  2  1  1  2  -9 -9
 						 4   2  4  2  2  4   2  4
@@ -415,7 +429,9 @@
 	; no menus or settings yet, just play a default game and exit
 	(define (reversi)
 		(define winner 
-			(match empty-board 42 '(0) black human-player ai-normal print-board pick-winner valid-moves do-move))
+			(match empty-board 
+				(put False 'print-board print-board-default)
+				'(0) black human-player ai-normal print-board pick-winner valid-moves do-move))
 		(cond
 			((eq? winner black)
 				(show-result "Black player wins"))
@@ -423,6 +439,8 @@
 				(show-result "White player wins"))
 			((eq? winner 'draw)
 				(show-result "A draw"))
+			((eq? winner 'quit)
+				(show-result "Quitter"))
 			(else
 				(show-result "Something completely different"))))
 
@@ -435,7 +453,7 @@
 			empty-board print-board pick-winner valid-moves do-move players '(0)))
 
 	(define reversi-node
-		(tuple 'proc False "Reversi" reversi))
+		(tuple 'proc False "reversi" reversi))
 
 
 

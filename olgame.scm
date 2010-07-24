@@ -52,9 +52,13 @@
 	(grale-put-text font-8px 100 100 #b00001101 "You rescued the prince")
 	(lets ((x y (grale-wait-click))) 42))
 
+,r "games/reversi.scm"
+,r "apps/colortest.scm"
+; ,r "games/ataxx.scm"
+
 (define olgame-games
 	(ilist
-		(tuple 'dir  False "princess series"
+		(tuple 'dir  False "rescue games"
 			(list
 				(tuple 'proc False "rescue the princess" princess-rescue)
 				(tuple 'proc False "rescue the prince" prince-rescue)
@@ -64,9 +68,6 @@
 				(tuple 'proc False "rescue the prince V" prince-rescue)))
 		olgame-games))
 
-,r "games/reversi.scm"
-
-; ,r "games/ataxx.scm"
 
 (define (choose-nearest-row opts y row-height)
 	(fold
@@ -90,27 +91,35 @@
 	
 (define (main-menu node)
 	(clear-screen)
-	(grale-put-text font-8px 10 20 #b00011100 
-		(foldr string-append "" (list "You now have " (runes->string (render (length node) null)) " choices")))
 	(grale-puts (- w 10) 10 #b00011100 owl-logo)
-	(define opts
-		(fold
-			(λ (opts thing)
-				(lets
-					((y (get opts 'y 40))
-					 (label (ref thing 3)))
-					(grale-put-text font-8px 20 y 
-						(cond
-							((eq? (ref thing 1) 'proc) #b00011100)
-							((eq? (ref thing 1) 'dir) #b00000011)
-							((eq? (ref thing 1) 'back) #b11111100)
-							(else #b11111111))
-						label)
-					(put (put opts 'y (+ y 15)) (- y 8) thing))) ; put row top
-			False 
-			(append  node (list(tuple 'back False "exit")))))
-	(paint-screen)
-	(wait-row-click (del opts 'y)))
+	(let 
+		;; add back-option to list
+		((node
+			(append node
+				(list 
+					(tuple 'back False 
+						(if (eq? node olgame-games) "leave olgame" "go back"))))))
+		(grale-put-text font-8px 10 20 #b00011100 
+			(foldr string-append "" (list "You now have " (runes->string (render (length node) null)) " choices")))
+		;; print the options and save y coord of each (keeping next one at 'y)
+		(define opts
+			(fold
+				(λ (opts thing)
+					(lets
+						((y (get opts 'y 40))
+						 (label (ref thing 3)))
+						(grale-put-text font-8px 20 y 
+							(cond
+								((eq? (ref thing 1) 'proc) #b00011100)
+								((eq? (ref thing 1) 'dir) #b00000011)
+								((eq? (ref thing 1) 'back) #b11111100)
+								(else #b11111111))
+							label)
+						(put (put opts 'y (+ y 15)) (- y 8) thing))) ; put row top
+				False node))
+		(paint-screen)
+		;; pick first click within a row
+		(wait-row-click (del opts 'y))))
 
 (define (olgame-root node)
 	(paint-screen)
