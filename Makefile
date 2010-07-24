@@ -23,7 +23,11 @@ grale: grale.c
 
 test: grale olgame
 	PATH=.:$(PATH) ./olgame
-	
+
+install: olgame grale
+	test -d $(HOME)/bin || mkdir $(HOME)/bin
+	cp grale olgame $(HOME)/bin
+
 #
 #everything: bin/five bin/soko bin/sudoku bin/flip bin/reversi bin/ataxx
 #

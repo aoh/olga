@@ -53,9 +53,9 @@
 	(lets ((x y (grale-wait-click))) 42))
 
 ,r "games/reversi.scm"
+,r "games/ataxx.scm"
 ,r "apps/colortest.scm"
 ,r "apps/keytest.scm"
-; ,r "games/ataxx.scm"
 
 (define olgame-games
 	(ilist

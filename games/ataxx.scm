@@ -3,80 +3,51 @@
 ;;;
 
 ,r "match.scm"
+,r "ai.scm"
 
 (define-module olgame-ataxx
 
 	(export ataxx-node)
 
+	(import lib-grale)
 	(import lib-match)
-
-	(define usage-text "Usage: ataxx [args]")
-
-	(define about-ataxx
-	"ataxx - a clone of the game ataxx
-	This game is from http://code.google.com/p/olgame.
-
-	Each piece can either grow a new one to a free neighbouring 8 
-	cells or jump to a distance of 2, in which case the original 
-	position becomes free. In both cases all the occupied neghbours 
-	of the new position, if any, are convered to the players pieces.
-
-	Use the arrow keys to move, and space or enter to first pick a 
-	cell, then select the new position and press again.
-
-	Pressing q ends the game.
-	")
-
-	(import lib-args)
-	(import lib-vt)
-
-	(define xo 3)
-	(define yo 2)
+	(import lib-ai)
 
 	(define black 'black)
 	(define white 'white)
 
-	(define (render-cell val)
-		(cond
-			((eq? val black) "● ")
-			((eq? val white) "○ ")
-			(else "· ")))
-
 	(define s 7) 
 
-	(define cells (let ((max (* s s))) (λ () (iota 0 1 max))))
+	(define cell (div (min w h) s))
 
-	(define (position-cursor x y)
-		(set-cursor (+ xo (* x 2)) (+ yo y)))
+	(define cells (let ((max (* s s))) (λ () (iota 0 1 max))))
 
 	(define (xy->pos x y) (+ (* y s) x))
 	(define (pos->xy pos) (values (rem pos s) (div pos s)))
 	(define (move-target move) (ref move (size move)))
 	(define (move->xy move) (if move (pos->xy (move-target move)) (values 1 1)))
 
+	(define (cell-color val)
+		(cond
+			((eq? val 'black) #b11100000)
+			((eq? val 'white) #b00011100)
+			(else #b00000001)))
+
 	(define (print-board-xy board x y)
-		(clear-screen)
+		(grale-fill-rect 10 10 100 100 #b11111100)
 		(for 42 (iota 0 1 s)
 			(λ (_ y)
-				(set-cursor xo (+ y yo))
 				(for 42 (iota 0 1 s)
 					(λ (_ x)
-						(display (render-cell (get board (+ x (* y s)) 'blank)))))))
-		(position-cursor x y)
-		(flush-port 1))
+						(grale-fill-rect (* x cell) (* y cell) cell cell 
+							(cell-color (get board (+ x (* y s)) 'blank)))))))
+		(grale-update 0 0 w h)
+		)
 
 	(define (print-board board move)
 		(lets ((x y (move->xy move)))
 			(print-board-xy board x y)))
 		
-	(define (move-focus board x y dir)
-		(cond
-			((eq? dir 'up) (values x (max 0 (- y 1))))
-			((eq? dir 'down) (values x (min (- s 1) (+ y 1))))
-			((eq? dir 'left) (values (max 0 (- x 1)) y))
-			((eq? dir 'right) (values (min (- s 1) (+ x 1)) y))
-			(else (error "now that's a thought! let's all move to " dir))))
-
 	(define (over? p) (or (< p 0) (>= p s)))
 
 	(define (grab pos offs) 
@@ -113,7 +84,7 @@
 	(define jumps
 		(list->ff (map (λ pos (cons pos (grab pos jump-offsets))) (cells))))
 
-	(define (pick-winner board)
+	(define (pick-winner board game-over?)
 		(define status
 			(for (tuple 0 0 0) (cells)
 				(λ (status pos)
@@ -123,7 +94,7 @@
 							((eq? val 'black) (set status 2 (+ (ref status 2) 1)))
 							(else             (set status 3 (+ (ref status 3) 1))))))))
 		(cond
-			((= 0 (ref status 3)) ; 0 free cells
+			((or game-over? (= 0 (ref status 3))) ; 0 free cells
 				(let ((w (ref status 1)) (b (ref status 2)))
 					(cond
 						((> w b) white)
@@ -197,13 +168,6 @@
 				moves)
 			False)))
 
-	; board → int (to be used as random seed)
-	(define (board-seed board)
-		(ff-fold
-			(λ (seed pos val)
-				(if (eq? pos black) (* seed 2) (+ seed 1)))
-			(time 1) board))
-
 	(define (make-move board pos player)
 		(for (put board pos player) (get neighbours pos null)
 			(λ (board pos) 
@@ -238,10 +202,6 @@
 
 	;;; Make AI players
 
-	,r "ai.scm"
-
-	(import lib-ai)
-
 	; note, could set allow-skip to false, but then if the loser makes the last valid move, the 
 	; possibly winning player may end up in a situation where there are no valid moves. the allow-skip 
 	; should be allowed to be a function which describes the behavior in those cases, namely make 
@@ -264,15 +224,10 @@
 			(if (null? moves)
 				(values False in)
 				(let loop ((in in) (x x) (y y) (source False))
-					(position-cursor x y)
-					(flush-port 1)
 					(cond
 						((null? in) (values 'quit False in))
 						((pair? in)
 							(tuple-case (car in)
-								((arrow dir)
-									(lets ((x y (move-focus board x y dir)))
-										(loop (cdr in) x y source)))
 								((key k)
 									; faactoor
 									(case k
@@ -316,29 +271,6 @@
 				(cons ai-experimental "experimental")
 				)))
 
-	(define (choose-player str)
-		(let ((choice (ff-fold (λ (taken op name) (if (equal? name str) op taken)) False players)))
-			(if (function? choice)
-				choice
-				(begin
-					(show "Unknown player. I know " (map cdr (ff->list players)))
-					False))))
-
-	(define (choose-side str)
-		(cond
-			((equal? str "black") black)
-			((equal? str "white") white)
-			(else False)))
-
-	(define command-line-rules
-		(cl-rules 
-			`((about "-A" "--about")
-			  (help  "-h" "--help")
-			  (black "-b" "--black" cook ,choose-player default "human" comment "choose black player")
-			  (white "-w" "--white" cook ,choose-player default "normal" comment "choose white player")
-			  (matches "-n" "--matches" default "1" cook ,string->integer check ,(λ x (and (number? x) (> x 0))))
-			  )))
-
 	(define (board-full? board)
 		(call/cc 
 			(λ (ret)
@@ -353,17 +285,27 @@
 
 	(define start-position (tuple 0))
 
-	(define (ataxx)
-		(print "no ataxx"))
-
-;							(play-match dict empty-board print-board
-;								pick-winner valid-moves do-move players start-position)
-		
-	; (ataxx '("ataxx" "-b" "human" "-w" "imbecile" "-n" "1"))
-	; (ataxx '("ataxx" "-b" "easy" "-w" "easy" "-n" "10"))
+   ; no menus or settings yet, just play a default game and exit
+   (define (ataxx)
+      (define winner
+         (match empty-board
+            (put False 'print-board print-board)
+            False black ai-normal ai-normal print-board pick-winner valid-moves do-move))
+      (cond
+         ((eq? winner black)
+            (print "Black player wins"))
+         ((eq? winner white)
+            (print "White player wins"))
+         ((eq? winner 'draw)
+            (print "A draw"))
+         ((eq? winner 'quit)
+            (print "Quitter"))
+         (else
+            (print "Something completely different"))))
 
 	(define ataxx-node
-		(tuple 'proc False "Ataxx" ataxx))
+		(tuple 'proc False "ataxx" ataxx))
+
 )
 
 ;; add to olgame indx
