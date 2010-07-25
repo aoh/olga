@@ -2,14 +2,9 @@
 ;;; reversi - it's like othello
 ;;;
 
-;; todo: menus, close [risti], config [työkalu], settings [menu scroll]
-;;  - menu-napit vaihtavat väriä hoveroidessa
-;;  - settings on state-transformer josta saadaan print-board yms
-;;	 - pelin loppuessa voisi tallettaa tilan kaikissa? 
-;;		+ eli menussa ohjelman paluuarvo aina talletetaan proc:ksi (jos se on jotain muotoa)
-
 ,r "ai.scm"
 ,r "match.scm"
+,r "menu.scm"
 
 ; switch the input parameter from match to opts (ff of property -> value)
 ; store game parameters there
@@ -22,6 +17,7 @@
 	(import lib-grale)
 	(import lib-ai)
 	(import lib-match)
+	(import lib-menu show-menu)
 
 	(export reversi-node)
 
@@ -286,6 +282,19 @@
 				(cons (+ (* 4 s) 3) black)
 				(cons (+ (* 4 s) 4) white))))
 
+	;;  - 
+
+	(define reversi-menu
+		(tuple 'menu
+			"trolololo"
+			"reversi preferences"
+			(list
+				(tuple 'choose "board style" "choose board style" 'print-board
+					(list
+						(tuple 'option "default" "default" print-board)))
+				(tuple 'quit)
+				)))
+
 	(define (human-player board opts last-move color)
 		(lets 
 			((moves (valid-moves board color))
@@ -301,7 +310,7 @@
 					(else (list (opponent-of color) " skipped the last move.")))))
 			(if (null? moves)
 				(values False opts)
-				(let loop ((x x) (y y))
+				(let loop ((x x) (y y) (opts opts))
 					(tuple-case (grale-wait-event)
 						((click btn xp yp)
 							(lets
@@ -313,11 +322,19 @@
 									; click outside of board quits for now. should really call the opts to see which 
 									; if any menu button was hit and act accordingly
 									((>= x s)
-										(values 'quit opts))
+										(tuple-case (show-menu reversi-menu opts)
+											((save opts)
+												((get opts 'print-board False) board last-move)
+												(loop x y opts))
+											((quit)
+												(values 'quit False))
+											(else is bad
+												(show "Bad menu output: " bad)
+												(values 'quit False))))
 									(flips
 										(values (cons pos flips) opts))
 									(else
-										(loop x y)))))
+										(loop x y opts)))))
 						((mouse-move xp yp)
 							(lets
 								((nx (div xp cell))
@@ -326,18 +343,18 @@
 								(cond
 									((and (eq? nx x) (eq? ny y))
 										; hovering on same cell
-										(loop x y))
+										(loop x y opts))
 									((get ff pos False) 
 										(update-cell x y (get board (xy->pos x y) 'blank))
 										(highlight-cell nx ny color)
 										(grale-update 0 0 w h)
-										(loop nx ny))
+										(loop nx ny opts))
 									(else
 										(update-cell x y (get board (xy->pos x y) 'blank))
 										(grale-update 0 0 w h)
-										(loop nx ny)))))
+										(loop nx ny opts)))))
 						(else is ev
-							(loop x y)))))))
+							(loop x y opts)))))))
 
 
 	;;; artificial stupidity begins
@@ -394,6 +411,10 @@
 	(define ai-exp-3 (make-time-bound-player 400 valid-moves do-move eval-board eval-final True))
 	(define ai-exp-4 (make-time-bound-player 800 valid-moves do-move eval-board eval-final True))
 
+	;; menu will have links to the players, including human. sigh. must add that separately or 
+	;; use AI names in place of the actual AI functions, which would have been more convenient..
+
+
 	(define players
 		(list->ff
 			(list 
@@ -443,17 +464,10 @@
 			((eq? winner 'draw)
 				(show-result "A draw"))
 			((eq? winner 'quit)
-				(show-result "Quitter"))
+				42)
 			(else
 				(show-result "Something completely different"))))
 
-	(define (reversi-no)
-		(play-match 
-			(list->ff
-				(list
-					(cons 'black human-player)
-					(cons 'white ai-normal)))
-			empty-board print-board pick-winner valid-moves do-move players '(0)))
 
 	(define reversi-node
 		(tuple 'proc False "reversi" reversi))

@@ -28,6 +28,8 @@ install: olgame grale
 	test -d $(HOME)/bin || mkdir $(HOME)/bin
 	cp grale olgame $(HOME)/bin
 
+todo: owl
+	owl -n *.scm */*.scm
 #
 #everything: bin/five bin/soko bin/sudoku bin/flip bin/reversi bin/ataxx
 #
