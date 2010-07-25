@@ -220,37 +220,33 @@
 		(lets
 			((moves (valid-moves board color))
 			 (x y (move->xy pos)))
-			(print-board-xy board x y)
 			(if (null? moves)
 				(values False in)
 				(let loop ((in in) (x x) (y y) (source False))
-					(cond
-						((null? in) (values 'quit False in))
-						((pair? in)
-							(tuple-case (car in)
-								((key k)
-									; faactoor
-									(case k
-										((32 13) 
-											(let ((pos (+ x (* y s))))
+					(tuple-case (grale-wait-event)
+						((click btn xp yp)
+							(lets
+								((x (div xp cell))
+								 (y (div yp cell)))
+								(if (and (< x s) (< y s))
+									(let ((pos (+ x (* y s))))
+										(cond
+											((blank? board pos)
 												(cond
-													((blank? board pos)
-														(cond
-															((find-move moves source pos) =>	
-																(λ (move) (values move (cdr in))))
-															(else
-																(loop (cdr in) x y False))))
-													((eq? color (get board pos False))
-														(loop (cdr in) x y pos))
+													((find-move moves source pos) =>
+														(λ (move) (values move in)))
 													(else
-														(loop (cdr in) x y False)))))
-										((113) ; [q]uit
-											(values 'quit (cdr in)))
-										(else
-											(loop (cdr in) x y source))))
-								(else
-									(loop (cdr in) x y source))))
-						(else (loop (in) x y source)))))))
+														;; fixme: no visual selection effect
+														(loop in x y pos))))
+												; select an own piece
+												((eq? color (get board pos False))
+													(loop in x y pos))
+												(else
+													(loop in x y False))))
+									; click outside of board to quit for now
+									(values 'quit in))))
+						(else
+							(loop in x y source)))))))
 
 	(define empty-board 
 		(list->ff
@@ -290,7 +286,7 @@
       (define winner
          (match empty-board
             (put False 'print-board print-board)
-            False black ai-normal ai-normal print-board pick-winner valid-moves do-move))
+            False black human-player ai-normal print-board pick-winner valid-moves do-move))
       (cond
          ((eq? winner black)
             (print "Black player wins"))
