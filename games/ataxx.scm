@@ -2,6 +2,8 @@
 ;;; ataxx
 ;;;
 
+;; todo: click when move is neighbour of own cell does not need a source selection
+
 ,r "match.scm"
 ,r "ai.scm"
 
