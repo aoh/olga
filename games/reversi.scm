@@ -21,6 +21,66 @@
 
 	(export reversi-node)
 
+	(define box-outline
+		(build-sprite
+			'(25
+				o x x x x x x x x x x x x x x x x x x x x x x x x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x - - - - - - - - - - - - - - - - - - - - - - - x 
+				x x x x x x x x x x x x x x x x x x x x x x x x x 
+				)))
+
+	(define box-cross
+		(build-sprite
+			'(25
+				- - - - - - - - - - - - - - - - - - - - - - - - - 
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - - 
+				- - - - - - - - - - - - - - - - - - - - - - - - -  
+				- - - - - - - - - - - - - - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - - 
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- - - - - - - - - - - - - - - - - - - - - - - - - 
+				- - - - - - - - - - - - - - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- x x x - - x x x - - x o x - x x x - - x x x - - 
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- - - - - - - - - - - - - - - - - - - - - - - - -  
+				- - - - - - - - - - - - - - - - - - - - - - - - - 
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - - 
+				- - - - - - - - - - - - - - - - - - - - - - - - -  
+				- - - - - - - - - - - - - - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - - 
+				- - - - - - - - - - - - x - - - - - - - - - - - -  
+				- - - - - - - - - - - - x - - - - - - - - - - - - 
+				- - - - - - - - - - - - - - - - - - - - - - - - - 
+				)))
+
 	(define game-piece
 		(build-sprite 
 			'(21 
@@ -71,6 +131,24 @@
 			- - - - - - - - - - - - - - - - - - - - -
 			- - - - - - - - - - - - - - - - - - - - -
 			- - - - - - - - - - - - - - - - - - - - -
+			)))
+
+	(define game-piece-x
+		(build-sprite 
+			'(13
+			x - - - - - - - - - - - x 
+			- x - - - - - - - - - x - 
+			- - x - - - - - - - x - - 
+			- - - x - - - - - x - - - 
+			- - - - x - - - x - - - - 
+			- - - - - x - x - - - - - 
+			- - - - - - o - - - - - - 
+			- - - - - x - x - - - - - 
+			- - - - x - - - x - - - - 
+			- - - x - - - - - x - - - 
+			- - x - - - - - - - x - -
+			- x - - - - - - - - - x -
+			x - - - - - - - - - - - x
 			)))
 
 	(define free-piece
@@ -128,6 +206,7 @@
 	(if (not free-piece) (error "free piece bad " free-piece))
 	(if (not game-piece) (error "game piece bad " game-piece))
 	(if (not highlight-piece) (error "highlight piece bad " highlight-piece))
+	(if (not box-cross) (error "bad box cross " box-cross))
 
 	;(define bgcolor #b10010001)
 	(define bgcolor #b00000000)
@@ -144,11 +223,13 @@
 	(define h 200)
 
 	; size of cells to draw
-	(define cell
-	 (div (min w h) s))
+	(define cell 25)
+
 	(define cell-mid (>> cell 1))
 
 	(define cells (let ((max (* s s))) (iota 0 1 max)))
+
+	;;; different style of cel highlight
 
 	(define (update-cell x y val)
 		(if (and (< x s) (< y s))
@@ -156,22 +237,52 @@
 				((xp (+ (* x cell) cell-mid))
 				 (yp (+ (* y cell) cell-mid)))
 				(cond
-					((eq? val black) ; blue
+					((eq? val black) 
 					 	(grale-puts xp yp #b00000010 game-piece)
-					 	(grale-puts xp yp #b00000001 game-piece-border)
-					)
+					 	(grale-puts xp yp #b00000001 game-piece-border))
 					((eq? val white)
-					;  	(grale-puts xp yp #b00011100 game-piece)
-					;  	(grale-puts xp yp #b00010000 game-piece-border)
 					 	(grale-puts xp yp #b11011011 game-piece)
-					 	(grale-puts xp yp #b01001001 game-piece-border)
-					)
+					 	(grale-puts xp yp #b01001001 game-piece-border))
 					(else
 						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell bgcolor)
-					 	(grale-puts xp yp #b00000001 free-piece)
+					 	(grale-puts xp yp #b00000001 free-piece))))))
+
+	(define (xo-green-update-cell x y val)
+		(if (and (< x s) (< y s))
+			(lets
+				((x (* x cell)) (xm (+ x cell-mid))
+				 (y (* y cell)) (ym (+ y cell-mid)))
+				(cond
+					((eq? val black) 
+						(grale-puts x y #b00000100 box-outline)
+					 	(grale-puts xm ym #b00011100 game-piece-border))
+					((eq? val white)
+						(grale-puts x y #b00000100 box-outline)
+					 	(grale-puts xm ym #b00011100 game-piece-x))
+					(else
+						(grale-fill-rect x y cell cell 0)
+						(grale-puts x y #b00000100 box-outline))))))
+
+	(define (board-update-cell x y val)
+		(if (and (< x s) (< y s))
+			(lets
+				((xp (+ (* x cell) cell-mid))
+				 (yp (+ (* y cell) cell-mid)))
+				(cond
+					((eq? val black) 
+					 	(grale-puts xp yp #b01101101 box-cross)
+					 	(grale-puts xp yp #b00000000 game-piece)
+					 	(grale-puts xp yp #b01001000 game-piece-border))
+					((eq? val white)
+					 	(grale-puts xp yp #b01101100 box-cross)
+					 	(grale-puts xp yp #b11111111 game-piece)
+					 	(grale-puts xp yp #b11011010 game-piece-border))
+					(else
+						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell #b10010001)
+					 	(grale-puts xp yp #b01101100 box-cross)
 						)))))
 
-	(define (highlight-cell x y col)
+	(define (highlight-cell x y col opts)
 		(if (and (< x s) (< y s))
 			(lets
 				((xp (* x cell))
@@ -180,21 +291,43 @@
 				(grale-puts (+ xp cell-mid) (+ yp cell-mid) #b00011000 highlight-piece)
 				)))
 
-	(define (print-board-default board x y)
-		(grale-fill-rect 0 0 w h bgcolor)
-		(for 42 (iota 0 1 s)
-			(λ (_ y)
-				(for 42 (iota 0 1 s)
-					(λ (_ x)
-						(update-cell x y (get board (+ x (* y s)) 'blank))))))
-		(grale-update 0 0 w h))
+	(define style-white-blue
+		(list->ff
+			(list
+				(cons 'bgcolor 0)
+				(cons 'update-cell update-cell))))
+
+	(define style-xo-green
+		(list->ff
+			(list
+				(cons 'bgcolor 0)
+				(cons 'update-cell xo-green-update-cell))))
+
+	(define style-board
+		(list->ff
+			(list
+				(cons 'bgcolor #b10010001)
+				(cons 'update-cell board-update-cell))))
+
+	(define (print-board-default board x y opts)
+		(lets
+			((style (get opts 'style False))
+			 (update (get style 'update-cell update-cell)))
+			(grale-fill-rect 0 0 w h 
+				(get style 'bgcolor bgcolor))
+			(for 42 (iota 0 1 s)
+				(λ (_ y)
+					(for 42 (iota 0 1 s)
+						(λ (_ x)
+							(update x y (get board (+ x (* y s)) 'blank))))))
+			(grale-update 0 0 w h)))
 
 	(define (move->xy move)
 		(if move (pos->xy (car move)) (values 1 1)))
 
-	(define (print-board board move)
+	(define (print-board board move opts)
 		(lets ((x y (move->xy move)))
-			(print-board-default board x y)))
+			(print-board-default board x y opts)))
 
 	;(define (print-moves moves color)
 	;	(let ((marker (if (eq? color 'black) "•" "◦")))
@@ -289,11 +422,23 @@
 			"trolololo"
 			"reversi preferences"
 			(list
-				(tuple 'choose "board style" "choose board style" 'print-board
+				(tuple 'choose "board style" "choose board style" 'style
 					(list
-						(tuple 'option "default" "default" print-board)))
+						(tuple 'option "white and blue" "" style-white-blue)
+						(tuple 'option "xo green" "" style-xo-green)
+						(tuple 'option "board" "" style-board)))
+				(tuple 'choose "show moves" "show available moves" 'show-moves
+					(list
+						(tuple 'option "no" "" False)
+						(tuple 'option "later yes" "" True)))
+				(tuple 'back)
+				(tuple 'spacer)
 				(tuple 'quit)
 				)))
+
+	(define (styled-update opts x y val)
+		((get (get opts 'style False) 'update-cell update-cell)
+			x y val))
 
 	(define (human-player board opts last-move color)
 		(lets 
@@ -324,7 +469,7 @@
 									((>= x s)
 										(tuple-case (show-menu reversi-menu opts)
 											((save opts)
-												((get opts 'print-board False) board last-move)
+												(print-board board last-move opts)
 												(loop x y opts))
 											((quit)
 												(values 'quit False))
@@ -345,12 +490,12 @@
 										; hovering on same cell
 										(loop x y opts))
 									((get ff pos False) 
-										(update-cell x y (get board (xy->pos x y) 'blank))
-										(highlight-cell nx ny color)
+										(styled-update opts x y (get board (xy->pos x y) 'blank))
+										(highlight-cell nx ny color opts)
 										(grale-update 0 0 w h)
 										(loop nx ny opts))
 									(else
-										(update-cell x y (get board (xy->pos x y) 'blank))
+										(styled-update opts x y (get board (xy->pos x y) 'blank))
 										(grale-update 0 0 w h)
 										(loop nx ny opts)))))
 						(else is ev
@@ -454,7 +599,7 @@
 	(define (reversi)
 		(define winner 
 			(match empty-board 
-				(put False 'print-board print-board)
+				False ; opts
 				'(0) black human-player ai-normal print-board pick-winner valid-moves do-move))
 		(cond
 			((eq? winner black)

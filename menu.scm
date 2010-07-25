@@ -33,7 +33,6 @@
 				(label-of (cdr things) val))))
 
 	;; fixme: menus should place the back-buttons explicitly
-	;; todo: add #(separator) 
 
 	(define (draw-rows things opts)
 		(del 
@@ -52,6 +51,8 @@
 							((menu name desc stuff)
 								(grale-put-text font-8px 20 y #b00000011 
 									(string-append name " (menu)")))
+							((spacer)
+								42)
 							((back)
 								(grale-put-text font-8px 20 y #b00011111 "back"))
 							((quit)
@@ -60,8 +61,7 @@
 								(error "draw-rows: what is a " thing)))
 						(put rows 'y (+ y row-height))))
 				(put False 'y 35)
-				(append things (list (tuple 'back)))
-				;things
+				things
 				)
 			'y))
 
@@ -99,7 +99,7 @@
 		(show-label name desc)
 		(tuple-case (pick-thing options opts)
 			((option name desc value) value)
-			((back) (get opts 'id False)) ; keep old value
+			((back) (get opts id False)) ; keep old value
 			(else is bad
 				(error "choose menu had a non-option: " bad))))
 

@@ -30,10 +30,8 @@
 
 	; -> black | white | draw | quit
 	(define (match board in pos next player opponent printer pick-winner valid-moves do-move)
-		(let loop ((board board) (pos pos) (next next) (player player) (opponent opponent) (skipped? False))
-			;(print (list 'match 'last pos 'next next 'skipped skipped?))
-			;(printer board pos)
-			((get in 'print-board (λ (a b) a)) board pos)
+		(let loop ((board board) (in in) (pos pos) (next next) (player player) (opponent opponent) (skipped? False))
+			(printer board pos in)
 			(cond
 				((pick-winner board False) =>
 					(λ (winner) winner))
@@ -46,12 +44,12 @@
 									(begin
 										(print "deadlock")
 										(pick-winner board True))
-									(loop board pos (opponent-of next) opponent player True)))
+									(loop board in pos (opponent-of next) opponent player True)))
 							((eq? move 'quit)
 								'quit)
 							((mem equal? (valid-moves board next) move)
 								(loop (do-move board move next) 
-									move (opponent-of next) 
+									in move (opponent-of next) 
 									opponent player False))
 							(else
 								(disqualify next "invalid move."))))))))
