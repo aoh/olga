@@ -46,7 +46,7 @@
 		(grale-update 0 0 w h)
 		)
 
-	(define (print-board board move)
+	(define (print-board board move opts)
 		(lets ((x y (move->xy move)))
 			(print-board-xy board x y)))
 		

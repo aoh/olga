@@ -279,8 +279,20 @@
 					 	(grale-puts xp yp #b11011010 game-piece-border))
 					(else
 						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell #b10010001)
-					 	(grale-puts xp yp #b01101100 box-cross)
-						)))))
+					 	(grale-puts xp yp #b01101100 box-cross))))))
+		
+	(define (block-update-cell x y val)
+		(if (and (< x s) (< y s))
+			(lets
+				((xp (* x cell))
+				 (yp (* y cell)))
+				(cond
+					((eq? val black) 
+						(grale-fill-rect xp yp cell cell 0))
+					((eq? val white)
+						(grale-fill-rect xp yp cell cell 255))
+					(else
+						(grale-fill-rect xp yp cell cell 1))))))
 
 	(define (highlight-cell x y col opts)
 		(if (and (< x s) (< y s))
@@ -302,6 +314,12 @@
 			(list
 				(cons 'bgcolor 0)
 				(cons 'update-cell xo-green-update-cell))))
+
+	(define style-blocks
+		(list->ff
+			(list
+				(cons 'bgcolor 0)
+				(cons 'update-cell block-update-cell))))
 
 	(define style-board
 		(list->ff
@@ -426,7 +444,8 @@
 					(list
 						(tuple 'option "white and blue" "" style-white-blue)
 						(tuple 'option "xo green" "" style-xo-green)
-						(tuple 'option "board" "" style-board)))
+						(tuple 'option "board" "" style-board)
+						(tuple 'option "blocks" "" style-blocks)))
 				(tuple 'choose "show moves" "show available moves" 'show-moves
 					(list
 						(tuple 'option "no" "" False)
