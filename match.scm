@@ -36,7 +36,7 @@
 				((pick-winner board False) =>
 					(λ (winner) winner))
 				(else
-					(lets ((move in (player board in pos next)))
+					(lets ((move in ((get in next 'bug-no-player) board in pos next)))
 						(cond
 							((not move)
 								(if skipped?

@@ -3,6 +3,7 @@
 ;;;
 
 ;; todo: ok to click neighbour cells without choosing source
+;; todo: set flippage in menu (8/4)?
 
 ,r "match.scm"
 ,r "ai.scm"

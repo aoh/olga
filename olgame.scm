@@ -175,8 +175,8 @@
 		1))
 
 
-; (olgame '(olgame))
+(olgame '(olgame))
 
-olgame
+; olgame
 
 

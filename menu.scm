@@ -15,8 +15,6 @@
 ; 
 ; in the upper right corner of all games, along with other game-specific buttons
 
-;; bug: click in separator row of reversi cases an error
-
 (define-module lib-menu
 
 	(export 
@@ -32,8 +30,6 @@
 				(ref (car things) 2))
 			(else
 				(label-of (cdr things) val))))
-
-	;; fixme: menus should place the back-buttons explicitly
 
 	(define (draw-rows things opts)
 		(del 

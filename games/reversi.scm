@@ -6,11 +6,9 @@
 ,r "match.scm"
 ,r "menu.scm"
 
-; switch the input parameter from match to opts (ff of property -> value)
-; store game parameters there
-;	- initially board printing function
-; an exit button and menu button
-; use something like olgame's main menu for menus
+;; todo: game entry menu (choose players and click play)
+;; todo: show players on the right and active with bold 
+;; todo: game end should show the piece pieces and counts instead winner colour, because the colours are meaningless with alternative board styles
 
 (define-module olgame-reversi
 
@@ -483,11 +481,7 @@
 				(else lose-score))))
 
 
-	(define ai-imbecile (make-random-player valid-moves))
-	(define ai-stupid   (make-simple-player valid-moves do-move eval-board 2))	
-	(define ai-easy     (make-simple-player valid-moves do-move eval-board-with-mobility 3))	; marginally less stupid
 	; demote these to easy and normal later
-	(define ai-normal (make-fixed-ply-player 2 valid-moves do-move eval-board eval-final True))
 	(define ai-hard (make-iterative-ply-player 5 valid-moves do-move eval-board eval-final True))
 
 	(define ai-exp-1 (make-time-bound-player 100 valid-moves do-move eval-board eval-final True))
@@ -498,25 +492,35 @@
 	;; menu will have links to the players, including human. sigh. must add that separately or 
 	;; use AI names in place of the actual AI functions, which would have been more convenient..
 
+	(define ai-normal
+		(make-fixed-ply-player 2 valid-moves do-move eval-board eval-final True))
+
 	(define player-options
 		(list
-			(tuple 'option "human" "" 'human) ; note, not the player code
-			(tuple 'option "easy ai" "" ai-normal)))
+			(tuple 'option "human" "" 'human) ; note, a label, not the player code. see add-selected-players.
+			(tuple 'option "ai imbecile" "" (make-random-player valid-moves))
+			(tuple 'option "ai stupid"   "" (make-simple-player valid-moves do-move eval-board 2))
+			(tuple 'option "ai easy"     "" 
+				(make-simple-player valid-moves do-move eval-board-with-mobility 3))
+			;; fixme: normal should be nondeterministic
+			(tuple 'option "ai normal"   "" ai-normal) ; default
+			(tuple 'option "ai medium"   ""
+				(make-iterative-ply-player 4 valid-moves do-move eval-board eval-final True))))
 
-	(define default-options
-		(list->ff
-			(list
-				(cons black 'human)
-				(cons white ai-normal)
-				(cons 'style style-board))))
+	(define (player-name option)
+		(or
+			(for False player-options
+				(λ (found this)
+					(if (eq? (ref this 4) option) (ref this 3) found)))
+			"anonimas"))
 
 	(define reversi-menu
 		(tuple 'menu
 			"trolololo"
 			"reversi preferences"
 			(list
-				(tuple 'choose "black player" "choose black player" black player-options)
-				(tuple 'choose "white player" "choose white player" white player-options)
+				(tuple 'choose "black player" "choose black player" 'black-player player-options)
+				(tuple 'choose "white player" "choose white player" 'white-player player-options)
 				(tuple 'choose "board style" "choose board style" 'style
 					(list
 						(tuple 'option "white and blue" "" style-white-blue)
@@ -531,6 +535,19 @@
 				(tuple 'spacer)
 				(tuple 'quit)
 				)))
+
+	;; take the selected players from 'black and 'white (selected via the menu) and 
+	;; add them to keys black and white, while converting 'human to given human. 
+	;; (owl has only trees. self-reference is not prohibited, merely impossible.)
+
+	(define (inhuman value human)
+		(if (eq? value 'human) human value))
+
+	(define (add-selected-players opts human)
+		(lets
+			((opts (put opts white (inhuman (get opts 'white-player 'bug) human)))
+			 (opts (put opts black (inhuman (get opts 'black-player 'bug) human))))
+			opts))
 
 	(define (human-player board opts last-move color)
 		(lets 
@@ -560,7 +577,8 @@
 										(tuple-case (show-menu reversi-menu opts)
 											((save opts)
 												(print-board board last-move opts)
-												(loop x y opts))
+												(loop x y 
+													(add-selected-players opts human-player)))
 											((quit)
 												(values 'quit False))
 											(else is bad
@@ -591,21 +609,14 @@
 						(else is ev
 							(loop x y opts)))))))
 
-	(define players
-		(list->ff
-			(list 
-				; roughly in order 
-				(cons ai-imbecile "imbecile") 
-				(cons ai-stupid "stupid") 
-				(cons ai-easy "easy") 
-				(cons human-player "human")
-				(cons ai-normal "normal")
-				(cons ai-hard "hard")
-				(cons ai-exp-1 "100ms")
-				(cons ai-exp-2 "200ms")
-				(cons ai-exp-3 "400ms")
-				(cons ai-exp-4 "800ms")
-				)))
+	(define default-options
+		(add-selected-players
+			(list->ff
+				(list
+					(cons 'black-player 'human)
+					(cons 'white-player ai-normal)
+					(cons 'style style-xo-green)))
+			human-player))
 
 	(define (get2 board x y def) (get board (xy->pos x y) def))
 
