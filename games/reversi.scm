@@ -3,7 +3,6 @@
 ;;;
 
 ,r "ai.scm"
-,r "match.scm"
 ,r "menu.scm"
 
 ;; todo: game entry menu (choose players and click play)
@@ -14,7 +13,7 @@
 
 	(import lib-grale)
 	(import lib-ai)
-	(import lib-match)
+	;(import lib-match)
 	(import lib-menu show-menu)
 
 	(export reversi-node)
@@ -411,7 +410,7 @@
 
 	(define (valid-moves board color)
 		(fold
-			(lambda (ok pos)
+			(λ (ok pos)
 				(if (blank? board pos)
 					(let ((flips (flips-of board (rem pos s) (div pos s) color)))
 						(if (null? flips)
@@ -507,12 +506,15 @@
 			(tuple 'option "ai medium"   ""
 				(make-iterative-ply-player 4 valid-moves do-move eval-board eval-final True))))
 
-	(define (player-name option)
-		(or
-			(for False player-options
-				(λ (found this)
-					(if (eq? (ref this 4) option) (ref this 3) found)))
-			"anonimas"))
+	(define (player-name opts color)
+		(lets
+			((id (if (eq? color black) 'black-player 'white-player))
+			 (selected (get opts id 'bug))
+			 (name
+				(for False player-options
+					(λ (found this)
+						(if (eq? (ref this 4) selected) (ref this 2) found)))))
+			(if name name "anonimasu")))
 
 	(define reversi-menu
 		(tuple 'menu
@@ -629,39 +631,80 @@
 			(pos->xy (car maybe-move))
 			(values 1 1)))
 
-	; (match empty-board (vt-events 0) start black bp wp printer pick-winner valid-moves do-move)
-
 	(define (show-result text)
-		(grale-fill-rect 20 20 100 20 0)
+		(grale-fill-rect 20 20 (+ (grale-text-width font-8px text) 4) 20 0)
 		(grale-put-text font-8px (+ 20 2) (+ 20 14) #b11111111 text)
 		(paint-screen)
 		(lets ((x y (grale-wait-click))) 42))
 
-	; no menus or settings yet, just play a default game and exit
-	(define (reversi)
-		(define winner 
-			(match empty-board 
-				default-options ; opts
-				'(0) black human-player ai-normal print-board pick-winner valid-moves do-move))
+	(define (show-match-result opts winner)
 		(cond
 			((eq? winner black)
-				(show-result "Black player wins"))
+				(show-result 
+					(string-append (player-name opts black)
+						" triumphs with black pieces")))
 			((eq? winner white)
-				(show-result "White player wins"))
+				(show-result 
+					(string-append (player-name opts white)
+						" triumphs with white pieces")))
 			((eq? winner 'draw)
-				(show-result "A draw"))
-			((eq? winner 'quit)
-				42)
+				(show-result "We will call it a draw"))
 			(else
 				(show-result "Something completely different"))))
 
 
-	(define reversi-node
-		(tuple 'proc False "reversi" reversi))
+	; -> opts' | quit
+	(define (match board opts pos next printer pick-winner valid-moves do-move)
+		(let loop ((board board) (opts opts) (pos pos) (next next) (skipped? False))
+			(printer board pos opts)
+			(cond
+				((pick-winner board False) =>
+					(λ (winner) 
+						(show-match-result opts winner) 
+						opts))
+				(else
+					(lets ((move opts ((get opts next 'bug-no-player) board opts pos next)))
+						(cond
+							((not move)
+								(if skipped?
+									; neither player can or is willing to move
+									(begin
+										(show-match-result opts (pick-winner board True))
+										opts)
+									(loop board opts pos (opponent-of next) True)))
+							((eq? move 'quit)
+								'quit)
+							((mem equal? (valid-moves board next) move)
+								(loop (do-move board move next)
+									opts move (opponent-of next) False))
+							(else
+								(show-result "Game terminated because of an invalid move")
+								opts)))))))
 
+		(define (reversi)
+			(let loop ((opts default-options))
+				(let 
+					((res
+						(match empty-board opts '(0) black 
+							print-board pick-winner valid-moves do-move)))
+					(cond
+						((eq? res 'quit)
+							'quit)
+						((or 
+							(eq? 'human (get res 'black-player False))
+							(eq? 'human (get res 'white-player False)))
+							(loop res))
+						(else
+							;; set human as starting player to allow getting to menu (temp hack)
+							(loop
+								(add-selected-players 
+									(put res 'black-player 'human)
+									human-player)))))))
 
+		(define reversi-node
+			(tuple 'proc False "reversi" reversi))
 
-)
+	)
 
 ;; add reversi to olgame indx
 (import olgame-reversi)

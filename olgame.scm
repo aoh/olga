@@ -151,7 +151,11 @@
 (define (start-olgame dict others)
 	(olgame-root olgame-games))
 
-(define usage-text "It's no use.")
+(define usage-text "Usage: olgame")
+
+(define about-olgame 
+"This is a collection of small games.
+Written by Aki Helin.")
 
 (define (olgame args)
 	(or 
@@ -159,8 +163,9 @@
 			(λ (dict others)
 				(cond
 					((get dict 'about False) 
-						(print "about what"))
+						(print about-olgame))
 					((get dict 'help False) 
+						(print usage-text)
 						(print-rules command-line-rules))
 					(else
 						(start-grale)
