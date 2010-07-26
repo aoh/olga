@@ -2,9 +2,12 @@
 ;;; One game to rule them all!!1
 ;;;
 
-; olgame has a simple program-selection menu
-; programs are in separate libraries under games/
-; they add themselves to the directory tree exposing only icon, name and program entry point
+;; todo: catch owl errors in programs and handle without closing olgame itself
+;; todo: allow storing some program state (like preferences) when closing apps
+;; todo: store test programs below a separate menu
+
+;; todo: convert old games (sokoban sudoku five(rewrite!) flip)
+;; todo: write new games (old and new puzzles, chess, arcade games, olganoid)
 
 (import lib-grale)
 (import lib-args)
@@ -172,8 +175,8 @@
 		1))
 
 
-(olgame '(olgame))
+; (olgame '(olgame))
 
-; olgame
+olgame
 
 

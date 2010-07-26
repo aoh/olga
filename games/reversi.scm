@@ -435,90 +435,10 @@
 
 	;;  - 
 
-	(define reversi-menu
-		(tuple 'menu
-			"trolololo"
-			"reversi preferences"
-			(list
-				(tuple 'choose "board style" "choose board style" 'style
-					(list
-						(tuple 'option "white and blue" "" style-white-blue)
-						(tuple 'option "xo green" "" style-xo-green)
-						(tuple 'option "board" "" style-board)
-						(tuple 'option "blocks" "" style-blocks)))
-				(tuple 'choose "show moves" "show available moves" 'show-moves
-					(list
-						(tuple 'option "no" "" False)
-						(tuple 'option "later yes" "" True)))
-				(tuple 'back)
-				(tuple 'spacer)
-				(tuple 'quit)
-				)))
-
 	(define (styled-update opts x y val)
 		((get (get opts 'style False) 'update-cell update-cell)
 			x y val))
 
-	(define (human-player board opts last-move color)
-		(lets 
-			((moves (valid-moves board color))
-			 (pos (if last-move (car last-move) (xy->pos 1 1)))
-			 (ff (list->ff moves)) ; ff of pos → flips
-			 (x y (pos->xy pos))
-			 (last 
-				(cond
-					((eq? board empty-board)
-						(list "Open the game."))
-					(last-move
-						(list (opponent-of color) " moved to (" x "," y ")."))
-					(else (list (opponent-of color) " skipped the last move.")))))
-			(if (null? moves)
-				(values False opts)
-				(let loop ((x x) (y y) (opts opts))
-					(tuple-case (grale-wait-event)
-						((click btn xp yp)
-							(lets
-								((x (div xp cell))  ;; fixme: round to nearest instead
-								 (y (div yp cell))
-								 (pos (xy->pos x y))
-								 (flips (get ff pos False)))
-								(cond
-									; click outside of board quits for now. should really call the opts to see which 
-									; if any menu button was hit and act accordingly
-									((>= x s)
-										(tuple-case (show-menu reversi-menu opts)
-											((save opts)
-												(print-board board last-move opts)
-												(loop x y opts))
-											((quit)
-												(values 'quit False))
-											(else is bad
-												(show "Bad menu output: " bad)
-												(values 'quit False))))
-									(flips
-										(values (cons pos flips) opts))
-									(else
-										(loop x y opts)))))
-						((mouse-move xp yp)
-							(lets
-								((nx (div xp cell))
-								 (ny (div yp cell))
-								 (pos (xy->pos nx ny)))
-								(cond
-									((and (eq? nx x) (eq? ny y))
-										; hovering on same cell
-										(loop x y opts))
-									((get ff pos False) 
-										(styled-update opts x y (get board (xy->pos x y) 'blank))
-										(highlight-cell nx ny color opts)
-										(grale-update 0 0 w h)
-										(loop nx ny opts))
-									(else
-										(styled-update opts x y (get board (xy->pos x y) 'blank))
-										(grale-update 0 0 w h)
-										(loop nx ny opts)))))
-						(else is ev
-							(loop x y opts)))))))
 
 
 	;;; artificial stupidity begins
@@ -578,6 +498,98 @@
 	;; menu will have links to the players, including human. sigh. must add that separately or 
 	;; use AI names in place of the actual AI functions, which would have been more convenient..
 
+	(define player-options
+		(list
+			(tuple 'option "human" "" 'human) ; note, not the player code
+			(tuple 'option "easy ai" "" ai-normal)))
+
+	(define default-options
+		(list->ff
+			(list
+				(cons black 'human)
+				(cons white ai-normal)
+				(cons 'style style-board))))
+
+	(define reversi-menu
+		(tuple 'menu
+			"trolololo"
+			"reversi preferences"
+			(list
+				(tuple 'choose "black player" "choose black player" black player-options)
+				(tuple 'choose "white player" "choose white player" white player-options)
+				(tuple 'choose "board style" "choose board style" 'style
+					(list
+						(tuple 'option "white and blue" "" style-white-blue)
+						(tuple 'option "xo green" "" style-xo-green)
+						(tuple 'option "board" "" style-board)
+						(tuple 'option "blocks" "" style-blocks)))
+				(tuple 'choose "show moves" "show available moves" 'show-moves
+					(list
+						(tuple 'option "no" "" False)
+						(tuple 'option "later yes" "" True)))
+				(tuple 'back)
+				(tuple 'spacer)
+				(tuple 'quit)
+				)))
+
+	(define (human-player board opts last-move color)
+		(lets 
+			((moves (valid-moves board color))
+			 (pos (if last-move (car last-move) (xy->pos 1 1)))
+			 (ff (list->ff moves)) ; ff of pos → flips
+			 (x y (pos->xy pos))
+			 (last 
+				(cond
+					((eq? board empty-board)
+						(list "Open the game."))
+					(last-move
+						(list (opponent-of color) " moved to (" x "," y ")."))
+					(else (list (opponent-of color) " skipped the last move.")))))
+			(if (null? moves)
+				(values False opts)
+				(let loop ((x x) (y y) (opts opts))
+					(tuple-case (grale-wait-event)
+						((click btn xp yp)
+							(lets
+								((x (div xp cell))  ;; fixme: round to nearest instead
+								 (y (div yp cell))
+								 (pos (xy->pos x y))
+								 (flips (get ff pos False)))
+								(cond
+									((>= x s)
+										(tuple-case (show-menu reversi-menu opts)
+											((save opts)
+												(print-board board last-move opts)
+												(loop x y opts))
+											((quit)
+												(values 'quit False))
+											(else is bad
+												(show "Bad menu output: " bad)
+												(values 'quit False))))
+									(flips
+										(values (cons pos flips) opts))
+									(else
+										(loop x y opts)))))
+						((mouse-move xp yp)
+							(lets
+								((nx (div xp cell))
+								 (ny (div yp cell))
+								 (pos (xy->pos nx ny)))
+								(cond
+									((and (eq? nx x) (eq? ny y))
+										; hovering on same cell
+										(loop x y opts))
+									((get ff pos False) 
+										(styled-update opts x y (get board (xy->pos x y) 'blank))
+										(highlight-cell nx ny color opts)
+										(grale-update 0 0 w h)
+										(loop nx ny opts))
+									(else
+										(styled-update opts x y (get board (xy->pos x y) 'blank))
+										(grale-update 0 0 w h)
+										(loop nx ny opts)))))
+						(else is ev
+							(loop x y opts)))))))
 
 	(define players
 		(list->ff
@@ -618,7 +630,7 @@
 	(define (reversi)
 		(define winner 
 			(match empty-board 
-				False ; opts
+				default-options ; opts
 				'(0) black human-player ai-normal print-board pick-winner valid-moves do-move))
 		(cond
 			((eq? winner black)

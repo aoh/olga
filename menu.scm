@@ -15,6 +15,7 @@
 ; 
 ; in the upper right corner of all games, along with other game-specific buttons
 
+;; bug: click in separator row of reversi cases an error
 
 (define-module lib-menu
 
@@ -40,7 +41,10 @@
 				(λ (rows thing)
 					(lets 
 						((y (get rows 'y False))
-						 (rows (put rows y thing)))
+						 (rows 	
+						 	(if (eq? (ref thing 1) 'spacer)
+								rows
+								(put rows y thing))))
 						(tuple-case thing
 							((option name desc value)
 								(grale-put-text font-8px 20 y #b00011100 name))
