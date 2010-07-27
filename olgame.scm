@@ -56,7 +56,7 @@
 	(lets ((x y (grale-wait-click))) 42))
 
 ,r "games/reversi.scm"
-,r "games/ataxx.scm"
+;,r "games/ataxx.scm" ;; not in use until the new match code is done (testing in reversi)
 ,r "apps/colortest.scm"
 ,r "apps/keytest.scm"
 

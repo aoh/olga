@@ -5,15 +5,16 @@
 ,r "ai.scm"
 ,r "menu.scm"
 
-;; todo: game entry menu (choose players and click play)
-;; todo: show players on the right and active with bold 
-;; todo: game end should show the piece pieces and counts instead winner colour, because the colours are meaningless with alternative board styles
+;; todo: set fgcolor and bold fgcolor in style (used for showing (active) player name, and ui buttons)
+;; todo: implement matches to test AIs 
+;; todo: figure out how and where to handle cell hightlighting so that it would work for all games
+;;		- just call update-cell with value 'highlight?
+;;	todo: eval function could always get move number 
 
 (define-module olgame-reversi
 
 	(import lib-grale)
 	(import lib-ai)
-	;(import lib-match)
 	(import lib-menu show-menu)
 
 	(export reversi-node)
@@ -328,8 +329,6 @@
 		(lets
 			((style (get opts 'style False))
 			 (update (get style 'update-cell update-cell)))
-			(grale-fill-rect 0 0 w h 
-				(get style 'bgcolor bgcolor))
 			(for 42 (iota 0 1 s)
 				(λ (_ y)
 					(for 42 (iota 0 1 s)
@@ -338,11 +337,24 @@
 			(grale-update 0 0 w h)))
 
 	(define (move->xy move)
+		(show "move->xy " move)
 		(if move (pos->xy (car move)) (values 1 1)))
 
-	(define (print-board board move opts)
-		(lets ((x y (move->xy move)))
-			(print-board-default board x y opts)))
+	(define (show-players pb pw opts color)
+		(lets
+			((pb (string-append pb " (black)"))
+			 (pw (string-append pw " (white)"))
+			 (pb-w (grale-text-width font-8px pb))
+			 (pw-w (grale-text-width font-8px pw)))
+			(grale-put-text font-8px 
+				(- 317 pb-w) 10 
+				(if (eq? color black) #b00011100 #b00001100)
+				pb)
+			(grale-put-text font-8px 
+				(- 317 pw-w) 20 
+				(if (eq? color white) #b00011100 #b00001100)
+				pw)))
+
 
 	;(define (print-moves moves color)
 	;	(let ((marker (if (eq? color 'black) "•" "◦")))
@@ -440,24 +452,39 @@
 
 	;;; artificial stupidity begins
 
-	(define scores
+	'(define scores
 		(list->ff
 			(zip cons cells
 				(list 50  -9  4  2  2  4  -9 50
-						-9  -9  2  1  1  2  -9 -9
+						-9  -9  2 -1 -1  2  -9 -9
 						 4   2  4  2  2  4   2  4
-						 2   1  2  1  1  2   1  2
-						 2   1  2  1  1  2   1  2
+						 2  -1  2  3  3  2  -1  2
+						 2  -1  2  3  3  2  -1  2
 						 4   2  4  2  2  4   2  4
-						-9  -9  2  1  1  2  -9 -9
+						-9  -9  2 -1 -1  2  -9 -9
 						50  -9  4  2  2  4  -9 50))))
+
+	(define scores
+		(list->tuple
+			(list     -9  4  2  2  4  -9 50
+					-9  -9  2 -1 -1  2  -9 -9
+					 4   2  4  2  2  4   2  4
+					 2  -1  2  3  3  2  -1  2
+					 2  -1  2  3  3  2  -1  2
+					 4   2  4  2  2  4   2  4
+					-9  -9  2 -1 -1  2  -9 -9
+					50  -9  4  2  2  4  -9 50 50)))
 
 	(define (eval-board board color)
 		(ff-fold
 			(λ (score pos val)
 				(if (eq? val color)
-					(+ score (get scores pos 0))
-					(- score (get scores pos 0))))
+					(if (eq? pos 0)
+						(+ score 50)
+						(+ score (ref scores pos)))
+					(if (eq? pos 0)
+						(- score 50)
+						(- score (ref scores pos)))))
 			0 board))
 
 	(define (eval-board-with-mobility board color)
@@ -504,7 +531,9 @@
 			;; fixme: normal should be nondeterministic
 			(tuple 'option "ai normal"   "" ai-normal) ; default
 			(tuple 'option "ai medium"   ""
-				(make-iterative-ply-player 4 valid-moves do-move eval-board eval-final True))))
+				(make-iterative-ply-player 3 valid-moves do-move eval-board eval-final True))
+			(tuple 'option "ai hard"     "" 
+				(make-time-bound-player 1300 valid-moves do-move eval-board eval-final True))))
 
 	(define (player-name opts color)
 		(lets
@@ -516,10 +545,20 @@
 						(if (eq? (ref this 4) selected) (ref this 2) found)))))
 			(if name name "anonimasu")))
 
+	(define (print-board board last-move opts color)
+		(lets
+			((p-black (player-name opts black))
+			 (p-white (player-name opts white)))
+			(grale-fill-rect 0 0 w h 
+				(get (get opts 'style False) 'bgcolor bgcolor))
+			(show-players p-black p-white opts color)
+			(lets ((x y (move->xy last-move)))
+				(print-board-default board x y opts))))
+
 	(define reversi-menu
 		(tuple 'menu
 			"trolololo"
-			"reversi preferences"
+			"reversi menu"
 			(list
 				(tuple 'choose "black player" "choose black player" 'black-player player-options)
 				(tuple 'choose "white player" "choose white player" 'white-player player-options)
@@ -531,8 +570,7 @@
 						(tuple 'option "blocks" "" style-blocks)))
 				(tuple 'choose "show moves" "show available moves" 'show-moves
 					(list
-						(tuple 'option "no" "" False)
-						(tuple 'option "later yes" "" True)))
+						(tuple 'option "hover" "" 'hover)))
 				(tuple 'back)
 				(tuple 'spacer)
 				(tuple 'quit)
@@ -578,8 +616,10 @@
 									((>= x s)
 										(tuple-case (show-menu reversi-menu opts)
 											((save opts)
-												(print-board board last-move opts)
-												(loop x y 
+												((get opts 'print-board 'bug-no-printer)
+													board last-move opts color)
+												;; bounce off the trampoline because the player code may have changed
+												(values 'reload
 													(add-selected-players opts human-player)))
 											((quit)
 												(values 'quit False))
@@ -615,9 +655,11 @@
 		(add-selected-players
 			(list->ff
 				(list
+					(cons 'print-board print-board) ; always passen in opts to players
 					(cons 'black-player 'human)
 					(cons 'white-player ai-normal)
-					(cons 'style style-xo-green)))
+					(cons 'style style-xo-green)
+					(cons 'show-moves 'hover)))
 			human-player))
 
 	(define (get2 board x y def) (get board (xy->pos x y) def))
@@ -656,15 +698,19 @@
 	; -> opts' | quit
 	(define (match board opts pos next printer pick-winner valid-moves do-move)
 		(let loop ((board board) (opts opts) (pos pos) (next next) (skipped? False))
-			(printer board pos opts)
+			(print (list 'match 'next next 'last pos))
+			(printer board pos opts next)
 			(cond
 				((pick-winner board False) =>
 					(λ (winner) 
 						(show-match-result opts winner) 
 						opts))
 				(else
+					(print "calling player")
 					(lets ((move opts ((get opts next 'bug-no-player) board opts pos next)))
+						(show " -> got move " move)
 						(cond
+							;; player makes a no-move or cannot move
 							((not move)
 								(if skipped?
 									; neither player can or is willing to move
@@ -672,8 +718,12 @@
 										(show-match-result opts (pick-winner board True))
 										opts)
 									(loop board opts pos (opponent-of next) True)))
+							;; special requests
+							((eq? move 'reload) ; try move again (probably human selected new player from menu)
+								(loop board opts pos next skipped?))
 							((eq? move 'quit)
 								'quit)
+							;; check if the response is a valid move
 							((mem equal? (valid-moves board next) move)
 								(loop (do-move board move next)
 									opts move (opponent-of next) False))
@@ -704,7 +754,7 @@
 		(define reversi-node
 			(tuple 'proc False "reversi" reversi))
 
-	)
+)
 
 ;; add reversi to olgame indx
 (import olgame-reversi)
