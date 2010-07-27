@@ -16,6 +16,32 @@
 
 	(export reversi-node)
 
+	(define menu-button
+		(build-sprite
+			'(20
+				- - - - - - - - - - - - - - - - - - - -
+				- + - - - x x x x x x x x x x x x x x -
+				- - - - x - - x - - - - - - - - - - - x
+				- - - - x - - x - - - - - - - - - - - x
+				- - - - x - x x x x x x x x x x x x x -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - - - x - - - - - - - - - - - - x - -
+				- - x x x - - - - - - - - - - - - x - -
+				- x - - x - - - - - - - - - - - - x - -
+				- x - x - - - - - - - - - - - - - x - -
+				- - x x x x x x x x x x x x x x x - - -
+				- - - - - - - - - - - - - - - - - - - -)))
+
 	(define box-outline
 		(build-sprite
 			'(25
@@ -496,12 +522,17 @@
 						(if (eq? (ref this 4) selected) (ref this 2) found)))))
 			(if name name "anonimasu")))
 
+	; click close enough to menu? (later have gui and choose clicks based on their position and extent)
+	(define (menu-click? x y)
+		(and (>= x 297) (>= y 174)))
+		
 	(define (print-board board last-move opts color)
 		(lets
 			((p-black (player-name opts black))
 			 (p-white (player-name opts white)))
 			(grale-fill-rect 0 0 w h 
 				(get (get opts 'style False) 'bgcolor 0))
+			(grale-puts 298 175 #b00000100 menu-button)
 			(show-players p-black p-white opts color)
 			(lets ((x y (move->xy last-move)))
 				(print-board-default board x y opts))))
@@ -565,18 +596,20 @@
 								 (flips (get ff pos False)))
 								(cond
 									((>= x s)
-										(tuple-case (show-menu reversi-menu opts)
-											((save opts)
-												((get opts 'print-board 'bug-no-printer)
-													board last-move opts color)
-												;; bounce off the trampoline because the player code may have changed
-												(values 'reload
-													(add-selected-players opts human-player)))
-											((quit)
-												(values 'quit False))
-											(else is bad
-												(show "Bad menu output: " bad)
-												(values 'quit False))))
+										(if (menu-click? xp yp)
+											(tuple-case (show-menu reversi-menu opts)
+												((save opts)
+													((get opts 'print-board 'bug-no-printer)
+														board last-move opts color)
+													;; bounce off the trampoline because the player code may have changed
+													(values 'reload
+														(add-selected-players opts human-player)))
+												((quit)
+													(values 'quit False))
+												(else is bad
+													(show "Bad menu output: " bad)
+													(values 'quit False)))
+											(loop x y opts)))
 									(flips
 										(values (cons pos flips) opts))
 									(else
