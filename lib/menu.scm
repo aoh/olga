@@ -53,10 +53,10 @@
 									(string-append name " (menu)")))
 							((spacer)
 								42)
-							((back)
-								(grale-put-text font-8px 20 y #b00011111 "back"))
-							((quit)
-								(grale-put-text font-8px 20 y #b11100000 "exit"))
+							((back text)
+								(grale-put-text font-8px 20 y #b00011111 text))
+							((quit text)
+								(grale-put-text font-8px 20 y #b11100000 text))
 							(else
 								(error "draw-rows: what is a " thing)))
 						(put rows 'y (+ y row-height))))
@@ -83,7 +83,7 @@
 							(wait-row-click rows)))
 					(else
 						(wait-row-click rows)))
-				(tuple 'quit))))
+				(tuple 'quit "eof"))))
 
 	; also handles scrolling later (add up- and down-buttons to side)
 	(define (pick-thing things opts)
@@ -99,7 +99,7 @@
 		(show-label name desc)
 		(tuple-case (pick-thing options opts)
 			((option name desc value) value)
-			((back) (get opts id False)) ; keep old value
+			((back text) (get opts id False)) ; keep old value
 			(else is bad
 				(error "choose menu had a non-option: " bad))))
 
@@ -109,8 +109,8 @@
 				(clear-screen)
 				(show-label name desc)
 				(tuple-case (pick-thing stuff opts)
-					((quit) (tuple 'quit)) ; quit from this menu
-					((back) (tuple 'save opts)) ; return with changes
+					((quit text) (tuple 'quit text)) ; quit from this menu
+					((back text) (tuple 'save opts)) ; return with changes
 					((option name desc value) value) ; return a custom value as-is
 					((choose name desc id options)
 						(show-menu menu

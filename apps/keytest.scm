@@ -37,11 +37,11 @@
 	(define (handle-key x y key)
 		(if (eq? key 13) ; carriage, return!
 			(let ((y (+ y row-height)))
-				(if (< y h)
-					(values 0 y)
+				(if (<= y h)
+					(values 1 y)
 					(begin
 						(clear-screen)
-						(values 0 row-height))))
+						(values 1 row-height))))
 			(lets 
 				((char (get font-8px key no-char)) ; (width . data)
 				 (xp (+ x (car char))))
@@ -69,7 +69,7 @@
 				(tester x y))))
 			
 	(define (key-test)
-		(tester 0 row-height))
+		(tester 1 row-height))
 
 	(define key-test-node
 		(tuple 'proc False "test keyboard" key-test))

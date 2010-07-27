@@ -553,9 +553,9 @@
 				(tuple 'choose "show moves" "show available moves" 'show-moves
 					(list
 						(tuple 'option "hover" "" 'hover)))
-				(tuple 'back)
+				(tuple 'back "play")
 				(tuple 'spacer)
-				(tuple 'quit)
+				(tuple 'quit "exit reversi")
 				)))
 
 	;; take the selected players from 'black and 'white (selected via the menu) and 
@@ -604,7 +604,7 @@
 													;; bounce off the trampoline because the player code may have changed
 													(values 'reload
 														(add-selected-players opts human-player)))
-												((quit)
+												((quit text)
 													(values 'quit False))
 												(else is bad
 													(show "Bad menu output: " bad)
@@ -709,11 +709,15 @@
 					((or 
 						(eq? 'human (get res 'black-player False))
 						(eq? 'human (get res 'white-player False)))
+						;; continue if a human player is present
 						(loop res))
 					(else
-						;; set human as starting player to allow getting to menu (temp hack)
-						(loop
-							(add-selected-players (put res 'black-player 'human) human-player)))))))
+						;; otherwise show a menu
+						(tuple-case (show-menu reversi-menu res)
+							((save opts)
+								; continue playing
+								(loop (add-selected-players opts human-player)))
+							(else 'quit)))))))
 
 	(define reversi-node
 		(tuple 'proc False "reversi" reversi))
