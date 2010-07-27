@@ -2,11 +2,12 @@
 ;;; Game-independent AI stuff
 ;;;
 
-; todo
-;	- beam search (n best)
-;	- resource bounded search (n nodes)
-;	- α-β optimizations (killer heuristic and others)
-;	- a 'recursive wedge search', which tries to simulate 
+;; todo: probabilistic α-β (count scores for each move with normal search, and choose nondeterministically based on score)
+;; todo: resource-bounded search (walk only n nodes in game tree -> bonus for deep forcing searches)
+;; todo: a background searcher using the iterative or beam search versions, and use it to implement the hard AI opponents
+;;		- start with a fairly narrow beam (say best 3 based on a local ply 2 search or direct eval)
+;;		- have a maximum thinking time to avoid draining battery if left pondering for extended periods of time
+;;			+ try not to start any more fans than necessary. think in bursts.
 
 (define-module lib-ai
 
@@ -203,12 +204,11 @@
 	(define (make-time-bound-player ms get-moves do-move eval eval-final allow-skip?)
 	
 		(λ (board in last color)
-			(print "timebound thinking")
 			(lets 
 				((timeout (+ (now-ms) ms)) ; when to return the result
 				 (move
 					(let loop ((trail null) (ply 1))
-						(print (list 'trail trail 'computing 'ply ply))
+						;(print (list 'trail trail 'computing 'ply ply))
 						(call/cc
 							(λ (ret)
 								(lets 
@@ -217,7 +217,7 @@
 										(if (< (now-ms) timeout) 
 											(get-moves board color)
 											(begin
-												(print (list 'timeout 'returning 'from trail))
+												;(print (list 'timeout 'returning 'from trail))
 												(ret (if (null? trail) False (car trail)))))))
 								  (plan-ahead 
 									(make-planner eval time-bounded-get-moves do-move eval-final allow-skip?))
@@ -228,7 +228,6 @@
 										(show "computed rest of game: score minimum " score)
 										(if (null? trail) False (car trail)))
 									(loop new-trail (+ ply 1)))))))))
-				(show "timebound returns move " move)
 				(values move in))))
 
 )

@@ -2,10 +2,12 @@
 ;;; reversi - it's like othello
 ;;;
 
-;; todo: set fgcolor and bold fgcolor in style (used for showing (active) player name, and ui buttons)
+;; todo: center and box game end message
+;; todo: count pieces for game end message 
+;; todo: change game end wording based on difference in pieces
+;; todo: set fgcolor and bold fgcolor in style (use for showing player names, the menu button and other buttons in the future, if necessary)
 ;; todo: implement tournaments to test AIs 
 ;; todo: figure out how and where to handle cell hightlighting so that it would work for all games
-;;	todo: eval function could always get move number 
 ;; todo: lots of opportunities for constant optimizations and precomputation to be made to improve speed later
 
 (define-module olgame-reversi
@@ -448,31 +450,31 @@
 				(cons (+ (* 4 s) 4) white))))
 
 	(define (styled-update opts x y val)
-		((get (get opts 'style False) 'update-cell update-cell)
-			x y val))
+		((get (get opts 'style False) 'update-cell update-cell) x y val))
 
 	;;; artificial stupidity begins
 
+	(define co 50) ; corner score
 	(define scores
 		(list->tuple
-			(list     -9  4  2  2  4  -9 50
+			(list     -9  4  2  2  4  -9 co
 					-9  -9 -2 -1 -1  2  -9 -9
 					 4  -2  4  2  2  4  -2  4
 					 2  -1  2  3  3  2  -1  2
 					 2  -1  2  3  3  2  -1  2
 					 4  -2  4  2  2  4  -2  4
 					-9  -9 -2 -1 -1 -2  -9 -9
-					50  -9  4  2  2  4  -9 50 50)))
+					co  -9  4  2  2  4  -9 co)))
 
 	(define (eval-board board color)
 		(ff-fold
 			(λ (score pos val)
 				(if (eq? val color)
 					(if (eq? pos 0)
-						(+ score 50)
+						(+ score co)
 						(+ score (ref scores pos)))
 					(if (eq? pos 0)
-						(- score 50)
+						(- score co)
 						(- score (ref scores pos)))))
 			0 board))
 
@@ -505,12 +507,12 @@
 			(tuple 'option "ai imbecile" "" (make-random-player valid-moves))
 			(tuple 'option "ai stupid"   "" (make-simple-player valid-moves do-move eval-board 2))
 			(tuple 'option "ai easy"     "" (make-simple-player valid-moves do-move eval-board-with-mobility 3))
-			;; fixme: normal should be nondeterministic
+			;; fixme: default AI should be nondeterministic
 			(tuple 'option "ai normal"   "" ai-normal) ; default ;; fixme: easy < normal < medium?
 			(tuple 'option "ai medium"   ""
 				(make-iterative-ply-player 3 valid-moves do-move eval-board eval-final True))
 			(tuple 'option "ai hard"     "" 
-				(make-time-bound-player 1300 valid-moves do-move eval-board eval-final True))))
+				(make-time-bound-player 3000 valid-moves do-move eval-board eval-final True))))
 
 	(define (player-name opts color)
 		(lets
@@ -538,9 +540,7 @@
 				(print-board-default board x y opts))))
 
 	(define reversi-menu
-		(tuple 'menu
-			"trolololo"
-			"reversi menu"
+		(tuple 'menu "trolololo" "reversi menu"
 			(list
 				(tuple 'choose "black player" "choose black player" 'black-player player-options)
 				(tuple 'choose "white player" "choose white player" 'white-player player-options)
@@ -550,9 +550,10 @@
 						(tuple 'option "xo green" "" style-xo-green)
 						(tuple 'option "board" "" style-board)
 						(tuple 'option "blocks" "" style-blocks)))
-				(tuple 'choose "show moves" "show available moves" 'show-moves
-					(list
-						(tuple 'option "hover" "" 'hover)))
+				;; not especially useful atm
+				;(tuple 'choose "show moves" "show available moves" 'show-moves
+				;	(list
+				;		(tuple 'option "hover" "" 'hover)))
 				(tuple 'back "play")
 				(tuple 'spacer)
 				(tuple 'quit "exit reversi")
