@@ -2,34 +2,43 @@
 CFLAGS=-Wall -O2
 PREFIX=$(HOME)
 
-olgame: olgame.c
-	gcc $(CFLAGS) -o olgame olgame.c
+bin/olgame: olgame.c
+	gcc $(CFLAGS) -o bin/olgame olgame.c
 
-olgame.c: owl *.scm */*.scm
-	./owl -c olgame.scm
+olgame.c: bin/owl *.scm */*.scm
+	./bin/owl -c olgame.scm
 
 owl.c:
 	wget http://owl-lisp.googlecode.com/svn/trunk/owl.c.bz2
 	bzip2 -d owl.c.bz2
 
-owl: owl.c
-	gcc -O2 -o owl owl.c
+bin/owl: owl.c
+	gcc -O2 -o bin/owl owl.c
 
 grale.c:
 	wget http://grale.googlecode.com/svn/trunk/grale.c
 
-grale: grale.c
-	gcc -O2 -lSDL -o grale grale.c
+bin/grale: grale.c
+	gcc -O2 -lSDL -o bin/grale grale.c
 
-test: grale olgame
-	PATH=.:$(PATH) ./olgame
+test: bin/grale bin/olgame
+	PATH=./bin:$(PATH) ./bin/olgame
 
-install: olgame grale
+# interactive to avoid accidentally overwriting a different version of grale, 
+# which could already be there
+install: bin/olgame bin/grale
 	test -d $(HOME)/bin || mkdir $(HOME)/bin
-	cp grale olgame $(HOME)/bin
+	echo "copying olgame and grale to your ~/bin"
+	cp -i bin/grale bin/olgame $(HOME)/bin
 
-todo: owl
+# interactive to see what happens, and in case one wants to keep grale
+uninstall:
+	rm -i $(HOME)/bin/olgame $(HOME)/bin/grale
+
+todo: bin/owl
 	owl -n *.scm */*.scm
+
+## deprecated
 #
 #everything: bin/five bin/soko bin/sudoku bin/flip bin/reversi bin/ataxx
 #
