@@ -5,18 +5,13 @@
 ;; todo: catch owl errors in programs and handle without closing olgame itself
 ;; todo: allow storing some program state (like preferences) when closing apps
 ;; todo: store test programs below a separate menu
-
 ;; todo: convert old games (sokoban sudoku five(rewrite!) flip)
 ;; todo: write new games (old and new puzzles, chess, arcade games, olganoid)
 
 (import lib-grale)
 (import lib-args)
 
-(define command-line-rules
-	(cl-rules 
-		`((about "-A" "--about")
-		  (help  "-h" "--help")
-		  )))
+;; global window size 
 
 (define w 320)
 (define h 200)
@@ -25,6 +20,7 @@
 ;   #(proc <icon>|False <label> start-thunk)
 ;	 #(dir <icon>|False (list-of-nodes))
 
+;; list to which loaded games add themselves
 (define olgame-games null)
 
 (define (paint-screen)
@@ -46,6 +42,13 @@
 			(begin
 				(print "grale got disconnected")
 				(values False False)))))
+
+;; shared code for games 
+
+,r "lib/menu.scm"
+,r "lib/ai.scm"
+
+;; test programs
 
 (define (princess-rescue)
 	(grale-put-text font-8px 100 100 #b11101100 "You rescued the princess")
@@ -72,6 +75,7 @@
 				(tuple 'proc False "rescue the prince V" prince-rescue)))
 		olgame-games))
 
+;; todo: generate the main menu using lib-menu
 
 (define (choose-nearest-row opts y row-height)
 	(fold
@@ -147,7 +151,6 @@
 			(else is thing
 				(error "confused by " thing)))))
 
-
 (define (start-olgame dict others)
 	(olgame-root olgame-games))
 
@@ -156,6 +159,12 @@
 (define about-olgame 
 "This is a collection of small games.
 Written by Aki Helin.")
+
+(define command-line-rules
+	(cl-rules 
+		`((about "-A" "--about")
+		  (help  "-h" "--help")
+		  )))
 
 (define (olgame args)
 	(or 

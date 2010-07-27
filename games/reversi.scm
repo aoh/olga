@@ -2,14 +2,11 @@
 ;;; reversi - it's like othello
 ;;;
 
-,r "ai.scm"
-,r "menu.scm"
-
 ;; todo: set fgcolor and bold fgcolor in style (used for showing (active) player name, and ui buttons)
-;; todo: implement matches to test AIs 
+;; todo: implement tournaments to test AIs 
 ;; todo: figure out how and where to handle cell hightlighting so that it would work for all games
-;;		- just call update-cell with value 'highlight?
 ;;	todo: eval function could always get move number 
+;; todo: lots of opportunities for constant optimizations and precomputation to be made to improve speed later
 
 (define-module olgame-reversi
 
@@ -201,13 +198,8 @@
 	      - - - - - - - - - - - - - - - - - - - - -
 			)))
 
-	(if (not free-piece) (error "free piece bad " free-piece))
-	(if (not game-piece) (error "game piece bad " game-piece))
-	(if (not highlight-piece) (error "highlight piece bad " highlight-piece))
-	(if (not box-cross) (error "bad box cross " box-cross))
-
-	;(define bgcolor #b10010001)
-	(define bgcolor #b00000000)
+	(if (not (all (λ (x) x) (list game-piece-border game-piece highlight-piece box-cross)))
+		(error "some game sprites failed" "lol"))
 
 	(define black 'black)
 	(define white 'white)
@@ -242,7 +234,7 @@
 					 	(grale-puts xp yp #b11011011 game-piece)
 					 	(grale-puts xp yp #b01001001 game-piece-border))
 					(else
-						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell bgcolor)
+						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell 0) ;; fixme, style-dependent
 					 	(grale-puts xp yp #b00000001 free-piece))))))
 
 	(define (xo-green-update-cell x y val)
@@ -336,9 +328,8 @@
 							(update x y (get board (+ x (* y s)) 'blank))))))
 			(grale-update 0 0 w h)))
 
-	(define (move->xy move)
-		(show "move->xy " move)
-		(if move (pos->xy (car move)) (values 1 1)))
+	(define (move->xy maybe-move)
+		(if maybe-move (pos->xy (car maybe-move)) (values 1 1)))
 
 	(define (show-players pb pw opts color)
 		(lets
@@ -354,18 +345,6 @@
 				(- 317 pw-w) 20 
 				(if (eq? color white) #b00011100 #b00001100)
 				pw)))
-
-
-	;(define (print-moves moves color)
-	;	(let ((marker (if (eq? color 'black) "•" "◦")))
-	;		(for-each
-	;			(λ (pos)
-	;				(set-cursor (+ xo (* (rem pos s) 2)) (+ yo (div pos s)))
-	;				(display marker))
-	;			(map car moves))
-	;		(flush-port 1)))
-		
-	(define (xy->pos x y) (+ (* y s) x))
 
 	; (dx . dy)
 	(define dirs '((-1 . -1) (0 . -1) (+1 . -1) (-1 . 0) (+1 . 0) (-1 . +1) (0 . +1) (+1 . +1)))
@@ -442,37 +421,21 @@
 				(cons (+ (* 4 s) 3) black)
 				(cons (+ (* 4 s) 4) white))))
 
-	;;  - 
-
 	(define (styled-update opts x y val)
 		((get (get opts 'style False) 'update-cell update-cell)
 			x y val))
 
-
-
 	;;; artificial stupidity begins
-
-	'(define scores
-		(list->ff
-			(zip cons cells
-				(list 50  -9  4  2  2  4  -9 50
-						-9  -9  2 -1 -1  2  -9 -9
-						 4   2  4  2  2  4   2  4
-						 2  -1  2  3  3  2  -1  2
-						 2  -1  2  3  3  2  -1  2
-						 4   2  4  2  2  4   2  4
-						-9  -9  2 -1 -1  2  -9 -9
-						50  -9  4  2  2  4  -9 50))))
 
 	(define scores
 		(list->tuple
 			(list     -9  4  2  2  4  -9 50
-					-9  -9  2 -1 -1  2  -9 -9
-					 4   2  4  2  2  4   2  4
+					-9  -9 -2 -1 -1  2  -9 -9
+					 4  -2  4  2  2  4  -2  4
 					 2  -1  2  3  3  2  -1  2
 					 2  -1  2  3  3  2  -1  2
-					 4   2  4  2  2  4   2  4
-					-9  -9  2 -1 -1  2  -9 -9
+					 4  -2  4  2  2  4  -2  4
+					-9  -9 -2 -1 -1 -2  -9 -9
 					50  -9  4  2  2  4  -9 50 50)))
 
 	(define (eval-board board color)
@@ -506,18 +469,7 @@
 				((eq? winner 'draw) 0)
 				(else lose-score))))
 
-
-	; demote these to easy and normal later
-	(define ai-hard (make-iterative-ply-player 5 valid-moves do-move eval-board eval-final True))
-
-	(define ai-exp-1 (make-time-bound-player 100 valid-moves do-move eval-board eval-final True))
-	(define ai-exp-2 (make-time-bound-player 200 valid-moves do-move eval-board eval-final True))
-	(define ai-exp-3 (make-time-bound-player 400 valid-moves do-move eval-board eval-final True))
-	(define ai-exp-4 (make-time-bound-player 800 valid-moves do-move eval-board eval-final True))
-
-	;; menu will have links to the players, including human. sigh. must add that separately or 
-	;; use AI names in place of the actual AI functions, which would have been more convenient..
-
+	;; own name useful for adding to menu defaults
 	(define ai-normal
 		(make-fixed-ply-player 2 valid-moves do-move eval-board eval-final True))
 
@@ -526,10 +478,9 @@
 			(tuple 'option "human" "" 'human) ; note, a label, not the player code. see add-selected-players.
 			(tuple 'option "ai imbecile" "" (make-random-player valid-moves))
 			(tuple 'option "ai stupid"   "" (make-simple-player valid-moves do-move eval-board 2))
-			(tuple 'option "ai easy"     "" 
-				(make-simple-player valid-moves do-move eval-board-with-mobility 3))
+			(tuple 'option "ai easy"     "" (make-simple-player valid-moves do-move eval-board-with-mobility 3))
 			;; fixme: normal should be nondeterministic
-			(tuple 'option "ai normal"   "" ai-normal) ; default
+			(tuple 'option "ai normal"   "" ai-normal) ; default ;; fixme: easy < normal < medium?
 			(tuple 'option "ai medium"   ""
 				(make-iterative-ply-player 3 valid-moves do-move eval-board eval-final True))
 			(tuple 'option "ai hard"     "" 
@@ -550,7 +501,7 @@
 			((p-black (player-name opts black))
 			 (p-white (player-name opts white)))
 			(grale-fill-rect 0 0 w h 
-				(get (get opts 'style False) 'bgcolor bgcolor))
+				(get (get opts 'style False) 'bgcolor 0))
 			(show-players p-black p-white opts color)
 			(lets ((x y (move->xy last-move)))
 				(print-board-default board x y opts))))
@@ -662,17 +613,6 @@
 					(cons 'show-moves 'hover)))
 			human-player))
 
-	(define (get2 board x y def) (get board (xy->pos x y) def))
-
-	(define (disqualify player reason)
-		(print* (list "Player " player " disqualified due to " reason "."))
-		(opponent-of player))
-
-	(define (move->xy maybe-move)
-		(if maybe-move
-			(pos->xy (car maybe-move))
-			(values 1 1)))
-
 	(define (show-result text)
 		(grale-fill-rect 20 20 (+ (grale-text-width font-8px text) 4) 20 0)
 		(grale-put-text font-8px (+ 20 2) (+ 20 14) #b11111111 text)
@@ -694,21 +634,17 @@
 			(else
 				(show-result "Something completely different"))))
 
-
 	; -> opts' | quit
-	(define (match board opts pos next printer pick-winner valid-moves do-move)
+	(define (match board opts pos next pick-winner valid-moves do-move)
 		(let loop ((board board) (opts opts) (pos pos) (next next) (skipped? False))
-			(print (list 'match 'next next 'last pos))
-			(printer board pos opts next)
+			((get opts 'print-board 'bug) board pos opts next)
 			(cond
 				((pick-winner board False) =>
 					(λ (winner) 
 						(show-match-result opts winner) 
 						opts))
 				(else
-					(print "calling player")
 					(lets ((move opts ((get opts next 'bug-no-player) board opts pos next)))
-						(show " -> got move " move)
 						(cond
 							;; player makes a no-move or cannot move
 							((not move)
@@ -731,28 +667,23 @@
 								(show-result "Game terminated because of an invalid move")
 								opts)))))))
 
-		(define (reversi)
-			(let loop ((opts default-options))
-				(let 
-					((res
-						(match empty-board opts '(0) black 
-							print-board pick-winner valid-moves do-move)))
-					(cond
-						((eq? res 'quit)
-							'quit)
-						((or 
-							(eq? 'human (get res 'black-player False))
-							(eq? 'human (get res 'white-player False)))
-							(loop res))
-						(else
-							;; set human as starting player to allow getting to menu (temp hack)
-							(loop
-								(add-selected-players 
-									(put res 'black-player 'human)
-									human-player)))))))
+	(define (reversi)
+		(let loop ((opts default-options))
+			(let ((res (match empty-board opts '(0) black pick-winner valid-moves do-move)))
+				(cond
+					((eq? res 'quit)
+						'quit)
+					((or 
+						(eq? 'human (get res 'black-player False))
+						(eq? 'human (get res 'white-player False)))
+						(loop res))
+					(else
+						;; set human as starting player to allow getting to menu (temp hack)
+						(loop
+							(add-selected-players (put res 'black-player 'human) human-player)))))))
 
-		(define reversi-node
-			(tuple 'proc False "reversi" reversi))
+	(define reversi-node
+		(tuple 'proc False "reversi" reversi))
 
 )
 
