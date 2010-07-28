@@ -64,12 +64,11 @@
 			(else #b00000001)))
 
 	(define (print-board-xy board x y)
-		(grale-fill-rect 10 10 100 100 #b11111100)
 		(for 42 (iota 0 1 s)
 			(λ (_ y)
 				(for 42 (iota 0 1 s)
 					(λ (_ x)
-						(grale-fill-rect (* x cell) (* y cell) cell cell 
+						(grale-fill-rect (+ 1 (* x cell)) (+ 1 (* y cell)) (- cell 1) (- cell 1) 
 							(cell-color (get board (+ x (* y s)) 'blank)))))))
 		(grale-update 0 0 w h)
 		)
@@ -200,15 +199,41 @@
 	(define (blank? board pos)
 		(eq? False (get board pos False)))
 
+	(define (find-cloning-move moves pos)
+		(for False moves
+			(λ (found this)
+				(or found 
+					(lets ((kind from to this))
+						(if (and (eq? kind 'clone) (eq? pos to)) this False))))))
+
+	(define (find-unique-jump moves pos)
+		(call/cc
+			(λ (ret)
+				(for False moves
+					(λ (found this)
+						(lets ((kind from to this))
+							(if (and (eq? kind 'jump) (eq? pos to))
+								(if found
+									(ret False) ; found many options
+									this))))))))
+
 	(define (find-move moves source pos)
-		(call/cc (λ (ret)
-			(for-each	
-				(λ (move)
-					(lets ((kind from to move))
-						(if (and (eq? from source) (eq? to pos))
-							(ret move))))
-				moves)
-			False)))
+		(cond
+			(source ; source explicitly selected?
+				(call/cc (λ (ret)
+					(for-each	
+						(λ (move)
+							(lets ((kind from to move))
+								(if (and (eq? from source) (eq? to pos))
+									(ret move))))
+						moves)
+					False)))
+			((find-cloning-move moves pos) =>
+				(λ (move) move))
+			;; todo: this thing not here yet
+			;((find-unique-jump moves pos) =>
+			;	(λ (move) move))
+			(else False)))
 
 	(define (make-move board pos player)
 		(for (put board pos player) (get neighbours pos null)
@@ -320,6 +345,7 @@
 								((x (div xp cell))
 								 (y (div yp cell)))
 								(cond
+									;; click in board?
 									((and (< x s) (< y s))
 										(let ((pos (+ x (* y s))))
 											(cond
@@ -486,28 +512,28 @@
 		(tuple 'proc False "ataxx" ataxx))
 
 
-	;; AI unit test
-	(import lib-test)
-	; these should always find moves with equal score 
-	(define alphabeta (make-fixed-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
-	(define minimax   (make-minimax-player   4 valid-unique-moves do-move eval-board eval-board-final True))
-	(define (random-ataxx-configuration rst)
-		(lets ((rst n (rand rst 10)))
-			(let loop ((rst rst) (board empty-board) (n n) (player black))
-				(if (= n 0)
-					board
-					(lets
-						((moves (valid-moves board player))
-						 (rst n (rand rst (length moves))))
-						(if (null? moves)
-							(loop rst empty-board 3 black) ; stuck
-							(loop rst (do-move board (lref moves n) player) (- n 1) (opponent-of player))))))))
-	'(test
-		(lmap random-ataxx-configuration
-			(liter rand-succ 
-				(lets ((ss ms (clock))) (* ss (expt (+ ms 1) 3)))))
-		(λ (board) (lets ((move opts (alphabeta board False 0 black))) (get opts 'score 'bug)))
-		(λ (board) (lets ((move opts (minimax board False 0 black))) (get opts 'score 'bag))))
+;	;; AI unit test
+;	(import lib-test)
+;	; these should always find moves with equal score 
+;	(define alphabeta (make-fixed-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+;	(define minimax   (make-minimax-player   4 valid-unique-moves do-move eval-board eval-board-final True))
+;	(define (random-ataxx-configuration rst)
+;		(lets ((rst n (rand rst 10)))
+;			(let loop ((rst rst) (board empty-board) (n n) (player black))
+;				(if (= n 0)
+;					board
+;					(lets
+;						((moves (valid-moves board player))
+;						 (rst n (rand rst (length moves))))
+;						(if (null? moves)
+;							(loop rst empty-board 3 black) ; stuck
+;							(loop rst (do-move board (lref moves n) player) (- n 1) (opponent-of player))))))))
+;	(test
+;		(lmap random-ataxx-configuration
+;			(liter rand-succ 
+;				(lets ((ss ms (clock))) (* ss (expt (+ ms 1) 3)))))
+;		(λ (board) (lets ((move opts (alphabeta board False 0 black))) (get opts 'score 'bug)))
+;		(λ (board) (lets ((move opts (minimax board False 0 black))) (get opts 'score 'bag))))
 	
 )
 
