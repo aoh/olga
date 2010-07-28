@@ -485,6 +485,30 @@
 	(define ataxx-node
 		(tuple 'proc False "ataxx" ataxx))
 
+
+	;; AI unit test
+	(import lib-test)
+	; these should always find moves with equal score 
+	(define alphabeta (make-fixed-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+	(define minimax   (make-minimax-player   4 valid-unique-moves do-move eval-board eval-board-final True))
+	(define (random-ataxx-configuration rst)
+		(lets ((rst n (rand rst 10)))
+			(let loop ((rst rst) (board empty-board) (n n) (player black))
+				(if (= n 0)
+					board
+					(lets
+						((moves (valid-moves board player))
+						 (rst n (rand rst (length moves))))
+						(if (null? moves)
+							(loop rst empty-board 3 black) ; stuck
+							(loop rst (do-move board (lref moves n) player) (- n 1) (opponent-of player))))))))
+	'(test
+		(lmap random-ataxx-configuration
+			(liter rand-succ 
+				(lets ((ss ms (clock))) (* ss (expt (+ ms 1) 3)))))
+		(λ (board) (lets ((move opts (alphabeta board False 0 black))) (get opts 'score 'bug)))
+		(λ (board) (lets ((move opts (minimax board False 0 black))) (get opts 'score 'bag))))
+	
 )
 
 

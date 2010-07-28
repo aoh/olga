@@ -8,12 +8,14 @@
 ;;		- start with a fairly narrow beam (say best 3 based on a local ply 2 search or direct eval)
 ;;		- have a maximum thinking time to avoid draining battery if left pondering for extended periods of time
 ;;			+ try not to start any more fans than necessary. think in bursts.
+;; todo: add a unit test and benchmark the deterministic optimizations to plain minimax
 
 (define-module lib-ai
 
 	(export 
 		make-random-player			; get-moves → player
 		make-simple-player			; get-moves → do-move → eval-board → factor → player
+		make-minimax-player			; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player 
 		make-fixed-ply-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
 		make-iterative-ply-player	; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
 		make-time-bound-player 		; ms get-moves do-move eval eval-final allow-skip?
@@ -83,14 +85,60 @@
 				 (move (select-move proposals (* ms1 ms2))))
 				(values (car move) in))))
 
+
+	;;; shared constants 
+
+	(define no-move False)
+	(define win   65535)		; <- stay within owl's fixnum range
+	(define lose -65535)
+
+
+	;;;
+	;;; a classic run-of-the-mill minimax
+	;;;
+
+	; note, the below ones are non-heuristic optimizations of this one. only 
+	; added to be able test speed and correctness. not for game use.
+
+	(define (make-minimax-player ply get-moves do-move eval eval-final allow-skip?)
+
+		(define (plan-ahead board color ply)
+			(if (= ply 0)
+				(values (eval board color) no-move)
+				(let ((opts (get-moves board color)))
+					(if (null? opts)
+						(let ((opp-moves (get-moves board (opponent-of color))))
+							(cond
+								((null? opp-moves) (values (eval-final board color) no-move))
+								(allow-skip? 
+									(lets ((oscore omove (plan-ahead board (opponent-of color) ply)))
+										(values (- 0 oscore) no-move)))
+								(else
+									; for example chess goes like this
+									(values lose no-move))))
+						(let loop ((opts opts) (score lose) (best (car opts)))
+							(if (null? opts) 
+								(values score best)
+								(lets
+									((os om (plan-ahead (do-move board (car opts) color) (opponent-of color) (- ply 1)))
+									 (this-score (- 0 os)))
+									(if (> this-score score)
+										(loop (cdr opts) this-score (car opts))
+										(loop (cdr opts) score best)))))))))
+
+		(λ (board in last color)
+			(lets ((score move (plan-ahead board color ply)))
+				(values move (put in 'score score)))))
+
+	; the below versions are mostly optimizations of the basic minimax algorithm.
+	; they prune the search game tree while still finding an equally good move.
+	; note that the move may be obviously be a different one, but it will always 
+	; be as good one, according to the evaluation function.
+
 	;;;
 	;;; a classic fixed-ply minimax with α-β 
 	;;;
 
-	(define no-move False)
-
-	(define win   65535)
-	(define lose -65535)
 
 	(define (make-fixed-ply-player ply get-moves do-move eval eval-final allow-skip?)
 
@@ -123,7 +171,7 @@
 
 		(λ (board in last color)
 			(lets ((score move (plan-ahead board color lose win ply)))
-				(values move in))))
+				(values move (put in 'score score)))))
 
 	;;;
 	;;; Iterative deepening α-β with best trail 
