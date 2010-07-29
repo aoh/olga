@@ -1,117 +1,188 @@
 
-; a generic match controller for two-player games
-; fixme, just quickly carried out all dependencies in variables. running out of battery for laptop and can't get up to 
-; get a charger or the kids might wake up...
+;; fixme: move player printing and button generation here and wrap them around each game-specific print-board
 
 (define-module lib-match
 	
-	(export play-match match)
-
-	(import lib-vt)
+	(export 
+		make-board-game		;; 
+	)		
 
 	(define black 'black)
 	(define white 'white)
 	(define (opponent-of x) (if (eq? x black) white black))
 
-	(define (report-winner winner)
-		(set-cursor 1 10)
+	(define win   65535)
+	(define lose -65535)
+
+	(import lib-grale)
+	(import lib-menu)
+	(import lib-ai)
+
+	(define (show-players pb pw opts color)
+		(lets
+			((pb (string-append pb " (black)"))
+			 (pw (string-append pw " (white)"))
+			 (pb-w (grale-text-width font-8px pb))
+			 (pw-w (grale-text-width font-8px pw)))
+			(grale-put-text font-8px 
+				(- 317 pb-w) 10 
+				(if (eq? color black) #b00011100 #b00001100)
+				pb)
+			(grale-put-text font-8px 
+				(- 317 pw-w) 20 
+				(if (eq? color white) #b00011100 #b00001100)
+				pw)))
+
+	(define (menu-click? x y)
+		(and (>= x 297) (>= y 174)))
+
+	(define (inhuman choise human)
+		(if (eq? choise 'human) human choise))
+
+	(define (add-selected-players opts human)
+		(lets
+			((opts (put opts white (inhuman (get opts 'white-player 'bug) human)))
+			 (opts (put opts black (inhuman (get opts 'black-player 'bug) human))))
+			opts))
+
+	(define (make-human-player menu valid-moves act initial-state)
+		
+		(define (human-player board opts pos color)
+			(let ((moves (valid-moves board color)))
+				(if (null? moves) 
+					(values False opts) ; no way to move, so do not bother the human by asking
+					(let loop ((opts opts) (state initial-state))
+						(tuple-case (grale-wait-event)
+							((click btn xp yp)
+								(if (menu-click? xp yp)
+									(tuple-case (show-menu menu opts)
+										((save opts)
+											((get opts 'print-board 'bug-no-printer)
+												board pos opts color)
+											;; bounce off the match trampoline because the player code may have changed
+											(values 'reload opts))
+										((quit text)
+											(values 'quit False))
+										(else is bad
+											(show "Bad menu output: " bad)
+											(values 'quit False)))
+									(lets ((opts state move (act opts state xp yp moves)))
+										(cond
+											((eq? move 'skip)
+												(values opts False))
+											((not move)
+												(loop opts state))
+											((mem equal? moves move)
+												(values move opts))
+											(else
+												(print*
+													(list 
+														"human-player: requested to make move " 
+														move 
+														", but the valid moves are " 
+														moves 
+														", so dropping request and asking againg."))
+												(loop opts state))))))
+							(else 
+								(loop opts state)))))))
+		human-player)
+
+	(define (player-name opts color player-options)
+		(lets
+			((id (if (eq? color black) 'black-player 'white-player))
+			 (selected (get opts id 'bug))
+			 (name
+				(for False player-options
+					(λ (found this)
+						(if (eq? (ref this 4) selected) (ref this 2) found)))))
+			(if name name "anonimasu")))
+	
+	(define (show-result text)
+		(grale-fill-rect 20 20 (+ (grale-text-width font-8px text) 4) 20 0)
+		(grale-put-text font-8px (+ 20 2) (+ 20 14) #b11111111 text)
+		(paint-screen)
+		(lets ((x y (grale-wait-click))) 42))
+
+	(define (show-match-result opts winner players)
 		(cond
 			((eq? winner black)
-				(print "The black knight always triumphs."))
+				(show-result 
+					(string-append (player-name opts black players)
+						" triumphs with black pieces")))
 			((eq? winner white)
-				(print "The white wizard is victorius."))
+				(show-result 
+					(string-append (player-name opts white players)
+						" triumphs with white pieces")))
+			((eq? winner 'draw)
+				(show-result "We will call it a draw"))
 			(else
-				(print "All right. We'll call it a draw."))))
+				(show-result "Something completely different"))))
 
-	(define (disqualify player reason)
-		(show "Player disqualified due to " reason)
-		(sleep 3000)
-		(opponent-of player))
+	; assume board area is 200x200 on the left (can be changed easily later by adding a (board-click? x y) -> pos|False)
+	; -> opts' | quit
 
-	; -> black | white | draw | quit
-	(define (match board in pos next player opponent printer pick-winner valid-moves do-move)
-		(let loop ((board board) (in in) (pos pos) (next next) (player player) (opponent opponent) (skipped? False))
-			(printer board pos in)
+	(define (match board opts pos next pick-winner valid-moves do-move human)
+		(let loop ((board board) (opts opts) (pos pos) (next next) (skipped? False))
+			((get opts 'print-board 'bug) board pos opts next)
 			(cond
 				((pick-winner board False) =>
-					(λ (winner) winner))
+					(λ (winner) (values winner opts)))
 				(else
-					(lets ((move in ((get in next 'bug-no-player) board in pos next)))
+					(lets ((move opts ((get opts next 'bug-no-player) board opts pos next)))
+						(show " -> match got move " move)
 						(cond
+							;; player makes a no-move or cannot move
 							((not move)
 								(if skipped?
 									; neither player can or is willing to move
-									(begin
-										(print "deadlock")
-										(pick-winner board True))
-									(loop board in pos (opponent-of next) opponent player True)))
+									(values (pick-winner board True) opts)
+									(loop board opts pos (opponent-of next) True)))
+							;; special requests
+							((eq? move 'reload) ; try move again (probably human selected new player from menu)
+								(loop board 
+									(add-selected-players opts human)
+									pos next skipped?))
 							((eq? move 'quit)
-								'quit)
+								(values 'quit opts))
+							;; check if the response is a valid move
 							((mem equal? (valid-moves board next) move)
-								(loop (do-move board move next) 
-									in move (opponent-of next) 
-									opponent player False))
+								(loop (do-move board move next)
+									opts move (opponent-of next) False))
 							(else
-								(disqualify next "invalid move."))))))))
+								(show " match got move proposal " move)
+								(show " valids are " (valid-moves board next))
+								(show-result "Game terminated because of an invalid move")
+								(values 'quit opts))))))))
 
+	;; note, players is usually already in menu, but added anyway
 
-	; names have to be printed differently, because rendering asks function
-	; names are from the 'meta thread, which is (stupid and) kind of useless 
-	; to have running around in dumped code.
+   (define (make-board-game default-options empty-board menu starter pick-winner valid-moves do-move players 
+					act initial-state)
+		(print "MAKING BOARD GAME")
+		(define human
+			(make-human-player menu valid-moves act initial-state))
 
-	(define (name-of player players)
-		(if (eq? player 'draw)
-			"draw"
-			(get players player "mysterious")))
-
-	(define (show-match-results res players)
-		(normal-console)
-		(if res
-			(lets
-				((res (ff->list res))
-				 (res (sort (λ (a b) (> (cdr a) (cdr b))) res)))
-				(clear-screen)
-				(set-cursor 1 1)
-				(print "Results: ")
-				(for-each
-					(λ (node)
-						(lets ((winner count node))
-							(print* (list " - " (name-of winner players) ": " count))))
-					res)
-				0)
-			(print "Quitter.")))
-
-	(define (start-match black-player white-player empty-board games printer pick-winner valid-moves do-move players start)
-		(let loop ((status False) (bp black-player) (wp white-player) (games games))
-			(if (> games 0)
-				(lets
-					((res 
-						(match empty-board (vt-events 0) start black bp wp printer pick-winner valid-moves do-move))
-					 (status
-						(cond
-							((eq? res black) (put status bp (+ 1 (get status bp 0))))
-							((eq? res white) (put status wp (+ 1 (get status wp 0))))
-							((eq? res 'draw) (put status 'draw (+ 1 (get status 'draw 0))))
-							(else status))))
-					(if (eq? res 'quit)
-						(show-match-results (del status res) players)
-						(begin
-							(clear-screen)
-							(set-cursor 1 1)
-							(show "Status: "
-								(ff-fold (lambda (out player score) (cons (cons (name-of player players) score) out)) null status))
-							(flush-port 1)
-							; (sleep 500) ; enough to see the progress in ai matches
-							(loop status wp bp (- games 1)))))
-				(show-match-results status players))))
-
-	(define (play-match args empty-board print-board pick-winner valid-moves do-move players start)
-		(raw-console)
-		(lets
-			((white (get args 'white 'bug))
-			 (black (get args 'black 'bug))
-			 (result (start-match black white empty-board (get args 'matches 1) print-board pick-winner valid-moves do-move players start)))
-			(normal-console)
-			0))
+		(λ ()
+			(print " ***************** ATAXXXXXXXXXXXXXXXXXXX *************************")
+			(let loop ((opts (add-selected-players default-options human)))
+				(lets ((opts res (match empty-board opts False starter pick-winner valid-moves do-move human)))
+					(show-match-result opts res players)
+					(cond
+						((eq? res 'quit)
+							'quit)
+						((or 
+							(eq? 'human (get res 'black-player False))
+							(eq? 'human (get res 'white-player False)))
+							;; continue if a human player is present
+							(loop res))
+						(else
+							;; otherwise show a menu
+							(tuple-case (show-menu menu res)
+								((save opts)
+									; continue playing
+									(loop (add-selected-players opts human)))
+								(else 'quit))))))))
 
 )
+
+

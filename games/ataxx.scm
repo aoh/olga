@@ -12,35 +12,9 @@
 
 	(export ataxx-node)
 
-	(import lib-grale)
 	(import lib-menu)
 	(import lib-ai)
-
-	(define menu-button
-		(build-sprite
-			'(20
-				- - - - - - - - - - - - - - - - - - - -
-				- + - - - x x x x x x x x x x x x x x -
-				- - - - x - - x - - - - - - - - - - - x
-				- - - - x - - x - - - - - - - - - - - x
-				- - - - x - x x x x x x x x x x x x x -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - - - x - - - - - - - - - - - - x - -
-				- - x x x - - - - - - - - - - - - x - -
-				- x - - x - - - - - - - - - - - - x - -
-				- x - x - - - - - - - - - - - - - x - -
-				- - x x x x x x x x x x x x x x x - - -
-				- - - - - - - - - - - - - - - - - - - -)))
+	(import lib-match)
 
 
 	(define black 'black)
@@ -72,7 +46,6 @@
 							(cell-color (get board (+ x (* y s)) 'blank)))))))
 		(grale-update 0 0 w h)
 		)
-
 		
 	(define (over? p) (or (< p 0) (>= p s)))
 
@@ -281,7 +254,6 @@
 	(define ai-experimental
 		(make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final True))
 
-
 	(define empty-board 
 		(list->ff
 			(list
@@ -332,63 +304,7 @@
 			 (opts (put opts black (inhuman (get opts 'black-player 'bug) human))))
 			opts))
 
-	(define (human-player board opts pos color)
-		(lets
-			((moves (valid-moves board color))
-			 (x y (move->xy pos)))
-			(if (null? moves)
-				(values False opts)
-				(let loop ((opts opts) (x x) (y y) (source False))
-					(tuple-case (grale-wait-event)
-						((click btn xp yp)
-							(lets
-								((x (div xp cell))
-								 (y (div yp cell)))
-								(cond
-									;; click in board?
-									((and (< x s) (< y s))
-										(let ((pos (+ x (* y s))))
-											(cond
-												((blank? board pos)
-													(cond
-														((find-move moves source pos) =>
-															(λ (move) (values move opts)))
-														(else
-															;; fixme: no visual selection effect
-															(loop opts x y pos))))
-													; select an own piece
-													((eq? color (get board pos False))
-														(loop opts x y pos))
-													(else
-														(loop opts x y False)))))
-									((menu-click? xp yp)
-										(tuple-case (show-menu ataxx-menu opts)
-											((save opts)
-												((get opts 'print-board 'bug-no-printer)
-													board pos opts color)
-												;; bounce off the trampoline because the player code may have changed
-												(values 'reload
-													(add-selected-players opts human-player)))
-											((quit text)
-												(values 'quit False))
-											(else is bad
-												(show "Bad menu output: " bad)
-												(values 'quit False))))
-									(else
-										(loop opts x y source)))))
-						(else is ev
-							(loop opts x y source)))))))
 
-	(define players
-		(list->ff
-			(list 
-				(cons ai-imbecile "imbecile") 
-				(cons ai-easy "easy")
-				(cons human-player "human")
-				(cons ai-normal "normal")
-				(cons ai-hard "hard")
-				(cons ai-experimental "experimental")
-				)))
 
 	(define (board-full? board)
 		(call/cc 
@@ -403,114 +319,49 @@
 			(else (error "bad move: " move))))
 
 	(define start-position (tuple 0))
-	(define (player-name opts color)
-		(lets
-			((id (if (eq? color black) 'black-player 'white-player))
-			 (selected (get opts id 'bug))
-			 (name
-				(for False player-options
-					(λ (found this)
-						(if (eq? (ref this 4) selected) (ref this 2) found)))))
-			(if name name "anonimasu")))
 
-	
+	;; fixme, match should handle most of this
 	(define (print-board board move opts color)
-		(lets
-			((p-black (player-name opts black))
-			 (p-white (player-name opts white))
-			 (x y (move->xy move)))
-			(grale-fill-rect 0 0 w h 
-				(get (get opts 'style False) 'bgcolor 0))
-			(grale-puts 298 175 #b00000100 menu-button)
-			(show-players p-black p-white opts color)
-			(print-board-xy board x y)))
-
+		;(lets
+		;	((p-black (player-name opts black))
+		;	 (p-white (player-name opts white))
+		;	 (x y (move->xy move)))
+		;	(grale-fill-rect 0 0 w h 
+		;		(get (get opts 'style False) 'bgcolor 0))
+		;	(grale-puts 298 175 #b00000100 menu-button)
+		;	(show-players p-black p-white opts color))
+		(print-board-xy board 1 1))
 
 	(define default-options
-		(add-selected-players
-			(list->ff
-				(list
-					(cons 'print-board print-board) ; always passen in opts to players
-					(cons 'black-player 'human)
-					(cons 'white-player ai-normal)))
-			human-player))
+		(list->ff
+			(list
+				(cons 'print-board print-board) ; always passen in opts to players
+				(cons 'black-player 'human)
+				(cons 'white-player ai-normal))))
 
-	(define (show-result text)
-		(grale-fill-rect 20 20 (+ (grale-text-width font-8px text) 4) 20 0)
-		(grale-put-text font-8px (+ 20 2) (+ 20 14) #b11111111 text)
-		(paint-screen)
-		(lets ((x y (grale-wait-click))) 42))
+	; -> opts' state' move|False
+	(define (act-like-human opts state x y moves)
+		(values opts state
+			(if (null? moves) False (car moves))))
+	
+	(define human-condition True)
 
-	(define (show-match-result opts winner)
-		(cond
-			((eq? winner black)
-				(show-result 
-					(string-append (player-name opts black)
-						" triumphs with black pieces")))
-			((eq? winner white)
-				(show-result 
-					(string-append (player-name opts white)
-						" triumphs with white pieces")))
-			((eq? winner 'draw)
-				(show-result "We will call it a draw"))
-			(else
-				(show-result "Something completely different"))))
-
-	; -> opts' | quit
-	(define (match board opts pos next pick-winner valid-moves do-move)
-		(let loop ((board board) (opts opts) (pos pos) (next next) (skipped? False))
-			((get opts 'print-board 'bug) board pos opts next)
-			(cond
-				((pick-winner board False) =>
-					(λ (winner) 
-						(show-match-result opts winner) 
-						opts))
-				(else
-					(lets ((move opts ((get opts next 'bug-no-player) board opts pos next)))
-						(cond
-							;; player makes a no-move or cannot move
-							((not move)
-								(if skipped?
-									; neither player can or is willing to move
-									(begin
-										(show-match-result opts (pick-winner board True))
-										opts)
-									(loop board opts pos (opponent-of next) True)))
-							;; special requests
-							((eq? move 'reload) ; try move again (probably human selected new player from menu)
-								(loop board opts pos next skipped?))
-							((eq? move 'quit)
-								'quit)
-							;; check if the response is a valid move
-							((mem equal? (valid-moves board next) move)
-								(loop (do-move board move next)
-									opts move (opponent-of next) False))
-							(else
-								(show-result "Game terminated because of an invalid move")
-								opts)))))))
-
-   (define (ataxx)
-		(let loop ((opts default-options))
-			(let ((res (match empty-board opts False black pick-winner valid-moves do-move)))
-				(cond
-					((eq? res 'quit)
-						'quit)
-					((or 
-						(eq? 'human (get res 'black-player False))
-						(eq? 'human (get res 'white-player False)))
-						;; continue if a human player is present
-						(loop res))
-					(else
-						;; otherwise show a menu
-						(tuple-case (show-menu ataxx-menu res)
-							((save opts)
-								; continue playing
-								(loop (add-selected-players opts human-player)))
-							(else 'quit)))))))
+	(define ataxx
+		(make-board-game
+			default-options
+			empty-board
+			ataxx-menu
+			black
+			pick-winner
+			valid-moves
+			do-move
+			player-options
+			act-like-human
+			human-condition
+			))
 
 	(define ataxx-node
 		(tuple 'proc False "ataxx" ataxx))
-
 
 ;	;; AI unit test
 ;	(import lib-test)
@@ -537,10 +388,68 @@
 	
 )
 
-
 ;; add to olgame indx
 (import olgame-ataxx)
 (define olgame-games (cons ataxx-node olgame-games))
 
-; ----------------------------------------------------------------------------
 
+
+
+
+
+
+
+
+
+
+
+
+
+; ----------------------------------------------------------------------------
+;
+;	(define (puny-human-player board opts pos color)
+;		(lets
+;			((moves (valid-moves board color))
+;			 (x y (move->xy pos)))
+;			(if (null? moves)
+;				(values False opts)
+;				(let loop ((opts opts) (x x) (y y) (source False))
+;					(tuple-case (grale-wait-event)
+;						((click btn xp yp)
+;							(lets
+;								((x (div xp cell))
+;								 (y (div yp cell)))
+;								(cond
+;									;; click in board?
+;									((and (< x s) (< y s))
+;										(let ((pos (+ x (* y s))))
+;											(cond
+;												((blank? board pos)
+;													(cond
+;														((find-move moves source pos) =>
+;															(λ (move) (values move opts)))
+;														(else
+;															;; fixme: no visual selection effect
+;															(loop opts x y pos))))
+;													; select an own piece
+;													((eq? color (get board pos False))
+;														(loop opts x y pos))
+;													(else
+;														(loop opts x y False)))))
+;									((menu-click? xp yp)
+;										(tuple-case (show-menu ataxx-menu opts)
+;											((save opts)
+;												((get opts 'print-board 'bug-no-printer)
+;													board pos opts color)
+;												;; bounce off the trampoline because the player code may have changed
+;												(values 'reload
+;													(add-selected-players opts puny-human-player)))
+;											((quit text)
+;												(values 'quit False))
+;											(else is bad
+;												(show "Bad menu output: " bad)
+;												(values 'quit False))))
+;									(else
+;										(loop opts x y source)))))
+;						(else is ev
+;							(loop opts x y source)))))))

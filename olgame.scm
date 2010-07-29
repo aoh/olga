@@ -45,8 +45,9 @@
 
 ;; shared code for games 
 
-,r "lib/menu.scm"
-,r "lib/ai.scm"
+,r "lib/menu.scm"		;; basic menu drawing and use 
+,r "lib/ai.scm"		;; abstract AI players 
+,r "lib/match.scm"	;; shared game and ui code
 
 ;; test programs
 

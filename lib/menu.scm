@@ -19,7 +19,35 @@
 
 	(export 
 		show-menu		;; menu choices -> action
+		menu-button		;; a shared menu-icon to lower right corner
 	)
+
+
+   (define menu-button
+      (build-sprite
+         '(20
+            - - - - - - - - - - - - - - - - - - - -
+            - + - - - x x x x x x x x x x x x x x -
+            - - - - x - - x - - - - - - - - - - - x
+            - - - - x - - x - - - - - - - - - - - x
+            - - - - x - x x x x x x x x x x x x x -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - - - x - - - - - - - - - - - - x - -
+            - - x x x - - - - - - - - - - - - x - -
+            - x - - x - - - - - - - - - - - - x - -
+            - x - x - - - - - - - - - - - - - x - -
+            - - x x x x x x x x x x x x x x x - - -
+            - - - - - - - - - - - - - - - - - - - -)))
 
 	(define row-height 15)
 
