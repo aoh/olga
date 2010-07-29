@@ -96,7 +96,8 @@
 					(λ (found this)
 						(if (eq? (ref this 4) selected) (ref this 2) found)))))
 			(if name name "anonimasu")))
-	
+
+	;; todo: a proper result window
 	(define (show-result text)
 		(grale-fill-rect 20 20 (+ (grale-text-width font-8px text) 4) 20 0)
 		(grale-put-text font-8px (+ 20 2) (+ 20 14) #b11111111 text)
@@ -119,14 +120,14 @@
 				(show-result "Something completely different"))))
 
 	; assume board area is 200x200 on the left (can be changed easily later by adding a (board-click? x y) -> pos|False)
-	; -> opts' | quit
 
+	; -> opts' | quit
 	(define (match board opts pos next pick-winner valid-moves do-move human)
 		(let loop ((board board) (opts opts) (pos pos) (next next) (skipped? False))
 			((get opts 'print-board 'bug) board pos opts next)
 			(cond
 				((pick-winner board False) =>
-					(λ (winner) (values winner opts)))
+					(λ (winner) (values opts winner)))
 				(else
 					(lets ((move opts ((get opts next 'bug-no-player) board opts pos next)))
 						(cond
@@ -134,7 +135,7 @@
 							((not move)
 								(if skipped?
 									; neither player can or is willing to move
-									(values (pick-winner board True) opts)
+									(values opts (pick-winner board True))
 									(loop board opts pos (opponent-of next) True)))
 							;; special requests
 							((eq? move 'reload) ; try move again (probably human selected new player from menu)
@@ -142,7 +143,7 @@
 									(add-selected-players opts human)
 									pos next skipped?))
 							((eq? move 'quit)
-								(values 'quit opts))
+								(values opts 'quit))
 							;; check if the response is a valid move
 							((mem equal? (valid-moves board next) move)
 								(loop (do-move board move next)
@@ -151,7 +152,7 @@
 								(show " match got move proposal " move)
 								(show " valids are " (valid-moves board next))
 								(show-result "Game terminated because of an invalid move")
-								(values 'quit opts))))))))
+								(values opts 'quit))))))))
 
 
 	;; a printer which also adds the menu button(s) and player information
@@ -175,24 +176,24 @@
 			(make-human-player menu valid-moves act initial-state))
 
 		(λ ()
-			(print " ***************** ATAXXXXXXXXXXXXXXXXXXX *************************")
 			(lets
 				((print-board (extended-print-board print-board players))
 				 (opts (put default-options 'print-board print-board)))
 				(let loop ((opts (add-selected-players opts human)))
 					(lets ((opts res (match empty-board opts False starter pick-winner valid-moves do-move human)))
-						(show-match-result opts res players)
+						(if (not (eq? res 'quit))
+							(show-match-result opts res players))
 						(cond
 							((eq? res 'quit)
 								'quit)
 							((or 
-								(eq? 'human (get res 'black-player False))
-								(eq? 'human (get res 'white-player False)))
+								(eq? 'human (get opts 'black-player False))
+								(eq? 'human (get opts 'white-player False)))
 								;; continue if a human player is present
 								(loop res))
 							(else
 								;; otherwise show a menu
-								(tuple-case (show-menu menu res)
+								(tuple-case (show-menu menu opts)
 									((save opts)
 										; continue playing
 										(loop (add-selected-players opts human)))
