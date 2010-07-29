@@ -66,7 +66,7 @@
 										(else is bad
 											(show "Bad menu output: " bad)
 											(values 'quit False)))
-									(lets ((opts state move (act opts state xp yp moves)))
+									(lets ((opts state move (act board opts state xp yp moves color)))
 										(cond
 											((eq? move 'skip)
 												(values opts False))
@@ -129,7 +129,6 @@
 					(λ (winner) (values winner opts)))
 				(else
 					(lets ((move opts ((get opts next 'bug-no-player) board opts pos next)))
-						(show " -> match got move " move)
 						(cond
 							;; player makes a no-move or cannot move
 							((not move)
@@ -154,34 +153,50 @@
 								(show-result "Game terminated because of an invalid move")
 								(values 'quit opts))))))))
 
+
+	;; a printer which also adds the menu button(s) and player information
+
+	(define (extended-print-board print-board players)
+		(λ (board move opts color)
+			(lets 
+				((p-black (player-name opts black players))
+				 (p-white (player-name opts white players)))
+				(grale-fill-rect 0 0 w h 
+					(get (get opts 'style False) 'bgcolor 0)) 
+				(grale-puts 298 175 #b00000100 menu-button) 
+				(show-players p-black p-white opts color)
+				(print-board board move opts color))))
+
 	;; note, players is usually already in menu, but added anyway
 
    (define (make-board-game default-options empty-board menu starter pick-winner valid-moves do-move players 
-					act initial-state)
-		(print "MAKING BOARD GAME")
+					act initial-state print-board) 
 		(define human
 			(make-human-player menu valid-moves act initial-state))
 
 		(λ ()
 			(print " ***************** ATAXXXXXXXXXXXXXXXXXXX *************************")
-			(let loop ((opts (add-selected-players default-options human)))
-				(lets ((opts res (match empty-board opts False starter pick-winner valid-moves do-move human)))
-					(show-match-result opts res players)
-					(cond
-						((eq? res 'quit)
-							'quit)
-						((or 
-							(eq? 'human (get res 'black-player False))
-							(eq? 'human (get res 'white-player False)))
-							;; continue if a human player is present
-							(loop res))
-						(else
-							;; otherwise show a menu
-							(tuple-case (show-menu menu res)
-								((save opts)
-									; continue playing
-									(loop (add-selected-players opts human)))
-								(else 'quit))))))))
+			(lets
+				((print-board (extended-print-board print-board players))
+				 (opts (put default-options 'print-board print-board)))
+				(let loop ((opts (add-selected-players opts human)))
+					(lets ((opts res (match empty-board opts False starter pick-winner valid-moves do-move human)))
+						(show-match-result opts res players)
+						(cond
+							((eq? res 'quit)
+								'quit)
+							((or 
+								(eq? 'human (get res 'black-player False))
+								(eq? 'human (get res 'white-player False)))
+								;; continue if a human player is present
+								(loop res))
+							(else
+								;; otherwise show a menu
+								(tuple-case (show-menu menu res)
+									((save opts)
+										; continue playing
+										(loop (add-selected-players opts human)))
+									(else 'quit)))))))))
 
 )
 

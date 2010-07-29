@@ -188,7 +188,8 @@
 							(if (and (eq? kind 'jump) (eq? pos to))
 								(if found
 									(ret False) ; found many options
-									this))))))))
+									this)
+								found)))))))
 
 	(define (find-move moves source pos)
 		(cond
@@ -203,9 +204,8 @@
 					False)))
 			((find-cloning-move moves pos) =>
 				(λ (move) move))
-			;; todo: this thing not here yet
-			;((find-unique-jump moves pos) =>
-			;	(λ (move) move))
+			((find-unique-jump moves pos) =>
+				(λ (move) move))
 			(else False)))
 
 	(define (make-move board pos player)
@@ -322,14 +322,6 @@
 
 	;; fixme, match should handle most of this
 	(define (print-board board move opts color)
-		;(lets
-		;	((p-black (player-name opts black))
-		;	 (p-white (player-name opts white))
-		;	 (x y (move->xy move)))
-		;	(grale-fill-rect 0 0 w h 
-		;		(get (get opts 'style False) 'bgcolor 0))
-		;	(grale-puts 298 175 #b00000100 menu-button)
-		;	(show-players p-black p-white opts color))
 		(print-board-xy board 1 1))
 
 	(define default-options
@@ -339,12 +331,22 @@
 				(cons 'black-player 'human)
 				(cons 'white-player ai-normal))))
 
-	; -> opts' state' move|False
-	(define (act-like-human opts state x y moves)
-		(values opts state
-			(if (null? moves) False (car moves))))
-	
-	(define human-condition True)
+	(define human-state False) ; selected node
+
+	(define (act-like-human board opts state x y moves color)
+		(lets
+			((x (div x cell))
+			 (y (div y cell)))
+			(if (and (< x s) (< y s))
+				(let ((pos (+ x (* y s))))
+					(cond
+						((find-move moves state pos) =>
+							(λ (move) (values opts False move)))
+						((eq? color (get board pos False))
+							(values opts pos False))
+						(else
+							(values opts False False))))
+				(values opts False False))))
 
 	(define ataxx
 		(make-board-game
@@ -357,7 +359,8 @@
 			do-move
 			player-options
 			act-like-human
-			human-condition
+			human-state
+			print-board
 			))
 
 	(define ataxx-node
@@ -394,62 +397,3 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-; ----------------------------------------------------------------------------
-;
-;	(define (puny-human-player board opts pos color)
-;		(lets
-;			((moves (valid-moves board color))
-;			 (x y (move->xy pos)))
-;			(if (null? moves)
-;				(values False opts)
-;				(let loop ((opts opts) (x x) (y y) (source False))
-;					(tuple-case (grale-wait-event)
-;						((click btn xp yp)
-;							(lets
-;								((x (div xp cell))
-;								 (y (div yp cell)))
-;								(cond
-;									;; click in board?
-;									((and (< x s) (< y s))
-;										(let ((pos (+ x (* y s))))
-;											(cond
-;												((blank? board pos)
-;													(cond
-;														((find-move moves source pos) =>
-;															(λ (move) (values move opts)))
-;														(else
-;															;; fixme: no visual selection effect
-;															(loop opts x y pos))))
-;													; select an own piece
-;													((eq? color (get board pos False))
-;														(loop opts x y pos))
-;													(else
-;														(loop opts x y False)))))
-;									((menu-click? xp yp)
-;										(tuple-case (show-menu ataxx-menu opts)
-;											((save opts)
-;												((get opts 'print-board 'bug-no-printer)
-;													board pos opts color)
-;												;; bounce off the trampoline because the player code may have changed
-;												(values 'reload
-;													(add-selected-players opts puny-human-player)))
-;											((quit text)
-;												(values 'quit False))
-;											(else is bad
-;												(show "Bad menu output: " bad)
-;												(values 'quit False))))
-;									(else
-;										(loop opts x y source)))))
-;						(else is ev
-;							(loop opts x y source)))))))
