@@ -52,7 +52,7 @@
 			opts))
 
 	(define (make-human-player menu valid-moves act initial-state)
-		
+	
 		(define (human-player board opts pos color)
 			(let ((moves (valid-moves board color)))
 				(if (null? moves) 
@@ -72,23 +72,22 @@
 										(else is bad
 											(show "Bad menu output: " bad)
 											(values 'quit False)))
-									(lets ((opts state move (act board opts state xp yp moves color)))
+									(lets ((opts state move (act board opts state xp yp moves color btn)))
 										(cond
 											((eq? move 'skip)
-												(values opts False))
+												(values False opts))
 											((not move)
 												(loop opts state))
 											((mem equal? moves move)
 												(values move opts))
 											(else
-												(print*
-													(list 
-														"human-player: requested to make move " 
-														move 
-														", but the valid moves are " 
-														moves 
-														", so dropping request and asking againg."))
-												(loop opts state))))))
+												(show "Invalid move: " move)
+												(values False opts))))))
+							((mouse-move xp yp)
+								(lets ((opts state move (act board opts state xp yp moves color False)))
+									(if move
+										(print "note: discarding human move request following a mouse move event"))
+									(loop opts state)))
 							(else 
 								(loop opts state)))))))
 		human-player)

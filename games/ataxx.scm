@@ -348,20 +348,24 @@
 
 	(define human-state False) ; selected node
 
-	(define (act-like-human board opts state x y moves color)
-		(lets
-			((x (div x cell))
-			 (y (div y cell)))
-			(if (and (< x s) (< y s))
-				(let ((pos (+ x (* y s))))
-					(cond
-						((find-move moves state pos) =>
-							(λ (move) (values opts False move)))
-						((eq? color (get board pos False))
-							(values opts pos False))
-						(else
-							(values opts False False))))
-				(values opts False False))))
+	(define (act-like-human board opts state x y moves color btn)
+		(if btn
+			(lets
+				((x (div x cell))
+				 (y (div y cell)))
+				(if (and (< x s) (< y s))
+					(let ((pos (+ x (* y s))))
+						(cond
+							((find-move moves state pos) =>
+								(λ (move) (values opts False move)))
+							((eq? color (get board pos False))
+								(values opts pos False))
+							(else
+								(values opts False False))))
+					(values opts False False)))
+			(begin
+				(show "i see mouse at " (cons x y))
+				(values opts state False))))
 
 	(define ataxx
 		(make-board-game

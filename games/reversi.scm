@@ -535,16 +535,21 @@
 				(or found 
 					(if (eq? (car this) pos) this False)))))
 
-	(define (act-human board opts state x y moves color)
-		(lets
-			((ox oy state)
-			 (pos (xy->pos (div x cell) (div y cell))))
-			(cond
-				((find-move moves pos) =>
-					(λ (move) 
-						(values opts state move)))
-				(else 
-					(values opts state False)))))
+	(define (act-human board opts state x y moves color btn)
+		(if btn
+			(lets
+				((ox oy state)
+				 (pos (xy->pos (div x cell) (div y cell))))
+				(cond
+					((find-move moves pos) =>
+						(λ (move) 
+							(values opts state move)))
+					(else 
+						(values opts state False))))
+			(begin
+				(show "i see mouse at " (cons x y))
+				(values opts state False))))
+
 			 
 	(define reversi
 		(make-board-game
