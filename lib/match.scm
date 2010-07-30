@@ -1,5 +1,8 @@
 
-;; fixme: move player printing and button generation here and wrap them around each game-specific print-board
+;; todo: check for menu clicks also when two computer-players are playing (not sure how to do this without adding a message queue yet..)
+;; todo: add tournaments to be able to test AI searches and evaluation functions
+;;		+ note: the probabilistic simple selector AI can be used directly to test the quality of eval functions \o/
+;;	todo: pass also mouse movements to human player so that optional hovering effects can be generated
 
 (define-module lib-match
 	
@@ -101,11 +104,19 @@
 			(if name name "anonimasu")))
 
 	;; todo: a proper result window
+	;; make a centered box to the game-area, which is assumed to be 200x200 (full left side)
 	(define (show-result text)
-		(grale-fill-rect 20 20 (+ (grale-text-width font-8px text) 4) 20 0)
-		(grale-put-text font-8px (+ 20 2) (+ 20 14) #b11111111 text)
-		(paint-screen)
-		(lets ((x y (grale-wait-click))) 42))
+		(lets
+			((text-width (grale-text-width font-8px text))
+			 (box-width (+ text-width 4))
+			 (box-height 20)
+			 (corner-x (div (- 200 box-width) 2))
+			 (corner-y (div (- 200 box-height) 2)))
+			(grale-fill-rect (- corner-x 1) (- corner-y 1) (+ box-width 2) (+ box-height 2) 255)
+			(grale-fill-rect corner-x corner-y box-width box-height 0)
+			(grale-put-text font-8px (+ corner-x 2) (+ corner-y 14) 255 text)
+			(paint-screen)
+			(lets ((x y (grale-wait-click))) 42)))
 
 	(define (show-match-result opts winner players)
 		(cond
