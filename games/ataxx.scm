@@ -2,11 +2,10 @@
 ;;; ataxx
 ;;;
 
-;; todo: ok to click neighbour cells without choosing source
-;; todo: set flippage in menu (8/4)?
-
-;; todo: when hovering on a movable cell (unique or cloning move) highlight the sources automatically
-;; todo: when selecting an own cell, highlight the target cells
+;; todo: allow setting flippage to 4
+;; todo: when hovering on a movable cell (unique or cloning move) highlight the sources
+;; todo: when selecting on (or overing on) own cell, highlight the target cells
+;; todo: when hovering on potential move, could also highlight the cells to be convered, onless it looks like a mess
 
 (define-module olgame-ataxx
 
@@ -24,7 +23,7 @@
 
 	(define cell (div (min w h) s))
 
-	(define cells (let ((max (* s s))) (λ () (iota 0 1 max))))
+	(define cells (iota 0 1 (expt s 2)))
 
 	(define (xy->pos x y) (+ (* y s) x))
 	(define (pos->xy pos) (values (rem pos s) (div pos s)))
@@ -78,10 +77,14 @@
 	(define jump-offsets (neighbours-at 2))
 
 	(define neighbours
-		(list->ff (map (λ pos (cons pos (grab pos neighbour-offsets))) (cells))))
+		;(list->ff (map (λ pos (cons pos (grab pos neighbour-offsets))) cells))
+		(list->vector (map (λ pos (grab pos neighbour-offsets)) cells))
+		)
 
 	(define jumps
-		(list->ff (map (λ pos (cons pos (grab pos jump-offsets))) (cells))))
+		;(list->ff (map (λ pos (cons pos (grab pos jump-offsets))) cells))
+		(list->vector (map (λ pos (grab pos jump-offsets)) cells))
+		)
 
 	(define (show-players pb pw opts color)
 		(lets
@@ -100,7 +103,7 @@
 
 	(define (pick-winner board game-over?)
 		(define status
-			(for (tuple 0 0 0) (cells)
+			(for (tuple 0 0 0) cells
 				(λ (status pos)
 					(let ((val (get board pos False)))
 						(cond
@@ -142,10 +145,10 @@
 				(if (eq? val player)
 					(lets
 						((moves 
-							(for moves (blanks-in board (get neighbours pos null) null)
+							(for moves (blanks-in board (vec-ref neighbours pos) null)
 								(λ (tail move) (cons (tuple 'clone pos move) tail))))
 						 (moves 
-							(for moves (blanks-in board (get jumps pos null) null)
+							(for moves (blanks-in board (vec-ref jumps pos) null)
 								(λ (tail move) (cons (tuple 'jump pos move) tail)))))
 						moves)
 					moves))
@@ -157,11 +160,11 @@
 				(if (eq? val player)
 					(lets
 						((moves 
-							(for moves (blanks-in board (get neighbours pos null) null)
+							(for moves (blanks-in board (vec-ref neighbours pos) null)
 								(λ (tail move) (cons (tuple 'clone pos move) tail))))
 						 (moves (remove-duplicates moves))
 						 (moves 
-							(for moves (blanks-in board (get jumps pos null) null)
+							(for moves (blanks-in board (vec-ref jumps pos) null)
 								(λ (tail move) (cons (tuple 'jump pos move) tail)))))
 						moves)
 					moves))
@@ -209,7 +212,7 @@
 			(else False)))
 
 	(define (make-move board pos player)
-		(for (put board pos player) (get neighbours pos null)
+		(for (put board pos player) (vec-ref neighbours pos)
 			(λ (board pos) 
 				(if (get board pos False)
 					(fupd board pos player)
@@ -218,11 +221,19 @@
 	(define (make-jump board from to player)
 		(make-move (del board from) to player))
 
-	(define (eval-board board color)
+	;;; just count the pieces
+	(define (eval-board-naive board color)
 		(ff-fold
 			(λ (score pos val)
-				(if (eq? val color) (+ score 1) (- score 1)))
+				(if (eq? val color) 
+					(+ score 1)
+					(- score 1)))
 			0 board))
+
+	; should probably take into account cell-mobility, safety (all neighbours occupied), etc
+
+	(define eval-board 
+		eval-board-naive)
 
 	(define win   65535)
 	(define lose -65535)
@@ -250,8 +261,7 @@
 	(define ai-imbecile (make-random-player valid-unique-moves))
 	(define ai-easy (make-simple-player valid-unique-moves do-move eval-board 2))
 	(define ai-normal (make-fixed-ply-player 2 valid-unique-moves do-move eval-board eval-board-final True))
-	(define ai-hard (make-iterative-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
-	(define ai-experimental
+	(define ai-hard 
 		(make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final True))
 
 	(define empty-board 
@@ -309,7 +319,7 @@
 	(define (board-full? board)
 		(call/cc 
 			(λ (ret)
-				(for-each (λ pos (if (blank? board pos) (ret False))) (cells))
+				(for-each (λ pos (if (blank? board pos) (ret False))) cells)
 				True)))
 
 	(define (do-move board move color)
@@ -327,6 +337,11 @@
 	(define default-options
 		(list->ff
 			(list
+				(cons 'style
+					(list->ff
+						(list
+							(cons 'color #b11111111)
+							(cons 'color-light #b01101101))))
 				(cons 'print-board print-board) ; always passen in opts to players
 				(cons 'black-player 'human)
 				(cons 'white-player ai-normal))))

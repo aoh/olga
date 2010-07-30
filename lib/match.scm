@@ -23,14 +23,17 @@
 			((pb (string-append pb " (black)"))
 			 (pw (string-append pw " (white)"))
 			 (pb-w (grale-text-width font-8px pb))
-			 (pw-w (grale-text-width font-8px pw)))
+			 (pw-w (grale-text-width font-8px pw))
+			 (style (get opts 'style False))
+			 (fg (get style 'color 255))
+			 (bg (get style 'color-light 255)))
 			(grale-put-text font-8px 
 				(- 317 pb-w) 10 
-				(if (eq? color black) #b00011100 #b00001100)
+				(if (eq? color black) fg bg)
 				pb)
 			(grale-put-text font-8px 
 				(- 317 pw-w) 20 
-				(if (eq? color white) #b00011100 #b00001100)
+				(if (eq? color white) fg bg)
 				pw)))
 
 	(define (menu-click? x y)
@@ -164,7 +167,9 @@
 				 (p-white (player-name opts white players)))
 				(grale-fill-rect 0 0 w h 
 					(get (get opts 'style False) 'bgcolor 0)) 
-				(grale-puts 298 175 #b00000100 menu-button) 
+				(grale-puts 298 175 
+					(get (get opts 'style False) 'color-light 255)
+					menu-button)
 				(show-players p-black p-white opts color)
 				(print-board board move opts color))))
 
