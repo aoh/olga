@@ -190,8 +190,6 @@ Written by Aki Helin.")
 		1))
 
 
-; (olgame '(olgame))
-
 olgame
 
 

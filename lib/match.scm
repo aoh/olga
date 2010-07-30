@@ -130,7 +130,8 @@
 			((get opts 'print-board 'bug) board pos opts next)
 			(cond
 				((pick-winner board False) =>
-					(λ (winner) (values opts winner)))
+					(λ (winner) 
+						(values opts winner)))
 				(else
 					(lets ((move opts ((get opts next 'bug-no-player) board opts pos next)))
 						(cond
@@ -195,7 +196,7 @@
 								(eq? 'human (get opts 'black-player False))
 								(eq? 'human (get opts 'white-player False)))
 								;; continue if a human player is present
-								(loop res))
+								(loop opts))
 							(else
 								;; otherwise show a menu
 								(tuple-case (show-menu menu opts)
