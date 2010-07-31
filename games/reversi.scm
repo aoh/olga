@@ -240,6 +240,8 @@
 					((eq? val white)
 					 	(grale-puts xp yp #b11011011 game-piece)
 					 	(grale-puts xp yp #b01001001 game-piece-border))
+					((eq? val 'highlight)
+						(grale-puts xp yp #b00011100 highlight-piece))
 					(else
 						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell 0) ;; fixme, style-dependent
 					 	(grale-puts xp yp #b00000001 free-piece))))))
@@ -256,6 +258,8 @@
 					((eq? val white)
 						(grale-puts x y #b00000100 box-outline)
 					 	(grale-puts xm ym #b00011100 game-piece-x))
+					((eq? val 'highlight)
+						(grale-puts xm ym #b00011100 highlight-piece))
 					(else
 						(grale-fill-rect x y cell cell 0)
 						(grale-puts x y #b00000100 box-outline))))))
@@ -276,6 +280,8 @@
 					 	(grale-puts xp yp #x88 box-cross)
 					 	(grale-puts xp yp #b11111111 game-piece)
 					 	(grale-puts xp yp #b11011010 game-piece-border))
+					((eq? val 'highlight)
+						(grale-puts xp yp #b00011100 highlight-piece))
 					(else
 						(grale-fill-rect (- xp cell-mid) (- yp cell-mid) cell cell #b10010001)
 					 	;(grale-puts xp yp #b01101100 box-cross)
@@ -292,6 +298,8 @@
 						(grale-fill-rect xp yp cell cell 0))
 					((eq? val white)
 						(grale-fill-rect xp yp cell cell 255))
+					((eq? val 'highlight)
+						(grale-puts (+ xp cell-mid) (+ yp cell-mid) #b00011100 highlight-piece))
 					(else
 						(grale-fill-rect xp yp cell cell 1))))))
 
@@ -509,10 +517,11 @@
 						(tuple 'option "xo green" "" style-xo-green)
 						(tuple 'option "board" "" style-board)
 						(tuple 'option "blocks" "" style-blocks)))
-				;; fixme: add highlighting back
-				;(tuple 'choose "show moves" "show available moves" 'show-moves
-				;	(list
-				;		(tuple 'option "hover" "" 'hover)))
+				(tuple 'choose "highlight" "what to highlight when moving mouse" 'show-moves
+					(list
+						(tuple 'option "all changes" "" 'flips)
+						(tuple 'option "just move" "" 'move)
+						(tuple 'option "nothing" "" 'nothing)))
 				(tuple 'back "play")
 				(tuple 'spacer)
 				(tuple 'quit "exit reversi")
@@ -525,9 +534,8 @@
 				(cons 'black-player 'human)
 				(cons 'white-player ai-normal)
 				(cons 'style style-xo-green)
-				(cons 'show-moves 'hover))))
+				(cons 'show-moves 'move))))
 
-	(define human-state (tuple -1 -1)) ; x.y of current cell being hovered over
 
 	(define (find-move moves pos)
 		(for False moves
@@ -535,19 +543,79 @@
 				(or found 
 					(if (eq? (car this) pos) this False)))))
 
-	(define (act-human board opts state x y moves color btn)
-		(if btn
-			(lets
-				((ox oy state)
-				 (pos (xy->pos (div x cell) (div y cell))))
-				(cond
-					((find-move moves pos) =>
-						(λ (move) 
-							(values opts state move)))
-					(else 
-						(values opts state False))))
+	(define human-state False) ; False | pos
+
+	;; restore graphics to cell
+	(define (remove-effect opts board pos color)
+		(if pos
+			;(lets 
+			;	((x y (pos->xy pos))
+			;	 (update (get (get opts 'style False) 'update-cell False)))
+			;	(update x y (get board pos 'blank))
+			;	(grale-update (* x cell) (* y cell) cell cell))
 			(begin
-				(show "i see mouse at " (cons x y))
+				((get opts 'print-board 'bug-no-printer) board pos opts color)
+				(paint-screen))))
+
+
+	;; highlight the cell if requested and movable
+	(define (add-effect opts board pos moves)
+		(cond
+			((find-move moves pos) =>
+				(λ (move)
+					(case (get opts 'show-moves False)
+						((flips) ; highlight all cells about to change
+							(for-each
+								(λ (pos)
+									(lets 
+										((x y (pos->xy pos))
+										 (xp (* x cell))
+										 (yp (* y cell)))
+										((get (get opts 'style False) 'update-cell False) x y 'highlight)
+										(grale-update xp yp cell cell)))
+								move)
+							pos)
+						((move) ; highlight just the target cell
+							(lets 
+								((x y (pos->xy pos))
+								 (xp (* x cell))
+								 (yp (* y cell)))
+								((get (get opts 'style False) 'update-cell False) x y 'highlight)
+								(grale-update xp yp cell cell))
+							pos)
+						(else False)))) ; highlight nothing
+			(else False)))
+
+	(define (coords->pos x y)
+		(lets
+			((x (div x cell))
+			 (y (div y cell)))
+			(if (and (< x s) (< y s))
+				(xy->pos x y)
+				False)))
+
+	; (grale-update 0 0 w h)
+
+	(define (act-human board opts state x y moves color btn)
+		(cond
+			(btn ; mouse cliced -> try to move
+				(lets
+					((pos (xy->pos (div x cell) (div y cell))))
+					(cond
+						((find-move moves pos) =>
+							(λ (move) 
+								(values opts state move)))
+						(else 
+							(values opts state False)))))
+			((coords->pos x y) =>
+				(λ (pos)
+					(if (equal? pos state)
+						(values opts state False) ; hover on the same cell as on last time
+						(begin
+							(remove-effect opts board state color)
+							(values opts (add-effect opts board pos moves) False)))))
+			(else
+				; mouse wandering elsewhere
 				(values opts state False))))
 
 			 

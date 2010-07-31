@@ -2,7 +2,6 @@
 ;;; ataxx
 ;;;
 
-
 ;; todo: the AI is too weak. switch to bitboards and a slightly better eval function based on them.
 ;; todo: allow setting flippage to 4
 ;; todo: when hovering on a movable cell (unique or cloning move) highlight the sources
@@ -263,8 +262,9 @@
 	(define ai-imbecile (make-random-player valid-unique-moves))
 	(define ai-easy (make-simple-player valid-unique-moves do-move eval-board 2))
 	(define ai-normal (make-alphabeta-player 2 valid-unique-moves do-move eval-board eval-board-final True))
+	(define ai-medium (make-alphabeta-player 3 valid-unique-moves do-move eval-board eval-board-final True))
 	(define ai-hard 
-		(make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final True))
+		(make-time-bound-player 3000 valid-unique-moves do-move eval-board eval-board-final True))
 
 	(define empty-board 
 		(list->ff
@@ -284,6 +284,7 @@
 			(tuple 'option "ai imbecile" "" ai-imbecile)
 			(tuple 'option "ai easy"   "" ai-easy)
 			(tuple 'option "ai normal"     "" ai-normal)
+			(tuple 'option "ai medium"     "" ai-medium)
 			(tuple 'option "ai hard"   "" ai-hard)))
 
 	(define ataxx-menu

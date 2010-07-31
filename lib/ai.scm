@@ -389,11 +389,11 @@
 	(define (make-time-bound-player ms get-moves do-move eval eval-final allow-skip?)
 	
 		(λ (board in last color)
+			(print "timebound thinking")
 			(lets 
 				((timeout (+ (now-ms) ms)) ; when to return the result
 				 (move
 					(let loop ((trail null) (ply 1))
-						;(print (list 'trail trail 'computing 'ply ply))
 						(call/cc
 							(λ (ret)
 								(lets 
@@ -401,13 +401,13 @@
 									(λ (board color)
 										(if (< (now-ms) timeout) 
 											(get-moves board color)
-											(begin
-												;(print (list 'timeout 'returning 'from trail))
-												(ret (if (null? trail) False (car trail)))))))
+											(ret (if (null? trail) False (car trail))))))
 								  (plan-ahead 
 									(make-planner eval time-bounded-get-moves do-move eval-final allow-skip?))
-								  (score new-trail (plan-ahead board color lose win ply trail)))
-								(print* (list "computed score " score " for ply " ply))
+								  (start (now-ms))
+								  (score new-trail (plan-ahead board color lose win ply trail))
+								  (end (now-ms)))
+								(print* (list "computed score " score " for ply " ply " in " (- end start) "ms"))
 								(if (equal? trail new-trail) ; computed to game end
 									(begin
 										(show "computed rest of game: score minimum " score)
