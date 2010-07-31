@@ -360,25 +360,29 @@
 				((get opts 'print-board 'bug-no-printer) board pos opts color)
 				(paint-screen))))
 
-	(define (highlight-cell pos)
+	(define (highlight-cell pos color)
 		(lets 
 			((x y (pos->xy pos))
 			 (xp (* x cell))
 			 (yp (* y cell)))
-			(grale-fill-rect (+ xp 4) (+ yp 4) (- cell 8) (- cell 8) #b00000010)
+			(grale-fill-rect (+ xp 12) (+ yp 12) (- cell 24) (- cell 24) color)
 			(grale-update xp yp cell cell)))
 
 	; (selected . hovered)
 	(define selected car)
 	(define hovered cdr)
-	(define (select state pos) (cons pos (hovered state))) ; could add a visual effect
+	(define (select state pos) 
+		(cons pos (hovered state))) ; could add a visual effect
 	(define (hover state pos) (cons (selected state) pos))
+
+	(define (unselect state)
+		(select state False))
 
 	(define (maybe-add-effect opts board state pos moves)
 		(cond
 			((find-move moves (selected state) pos) =>
 				(λ (move) 
-					(highlight-cell pos)
+					(highlight-cell pos 2)
 					pos))
 			(else pos)))
 
@@ -387,6 +391,20 @@
 			(if (and (< x s) (< y s))
 				(xy->pos x y)
 				False)))
+
+	(define (show-available-moves moves pos)
+		(for-each
+			(λ (move)
+				(highlight-cell pos 0)
+				(tuple-case move
+					((clone from to)
+						(if (= from pos)
+							(highlight-cell to 2)))
+					((jump from to)
+						(if (= from pos)
+							(highlight-cell to 3)))))
+			moves)
+		(paint-screen))
 
 	(define (act-like-human board opts state x y moves color btn)
 		(cond
@@ -400,10 +418,21 @@
 								((find-move moves (selected state) pos) =>
 									(λ (move) (values opts state move)))
 								((eq? color (get board pos False))
+									((get opts 'print-board 'bug-no-printer) board pos opts color)
+									(paint-screen)
+									(show-available-moves moves pos)
 									(values opts (select state pos) False))
 								(else ; unselect
-									(values opts (select state False) False))))
-						(values opts (select state False) False))))
+									((get opts 'print-board 'bug-no-printer) board pos opts color)
+									(paint-screen)
+									(values opts (unselect state) False))))
+						(begin
+							((get opts 'print-board 'bug-no-printer) board 1 opts color)
+							(paint-screen)
+							(values opts (unselect state) False)))))
+			((selected state)
+				; no highlight when something has been explicitly selected
+				(values opts state False))
 			((coords->pos x y) =>
 				(λ (pos)
 					(if (equal? pos (hovered state))
