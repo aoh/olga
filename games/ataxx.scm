@@ -349,26 +349,73 @@
 				(cons 'black-player 'human)
 				(cons 'white-player ai-normal))))
 
-	(define human-state False) ; selected node
+	; #(selected|False hovered|False)
+	(define human-state 
+		(cons False False))
+
+	; SPARTAA!!1
+	(define (remove-effect opts board pos color)
+		(if pos
+			(begin
+				((get opts 'print-board 'bug-no-printer) board pos opts color)
+				(paint-screen))))
+
+	(define (highlight-cell pos)
+		(lets 
+			((x y (pos->xy pos))
+			 (xp (* x cell))
+			 (yp (* y cell)))
+			(grale-fill-rect (+ xp 4) (+ yp 4) (- cell 8) (- cell 8) #b00000010)
+			(grale-update xp yp cell cell)))
+
+	; (selected . hovered)
+	(define selected car)
+	(define hovered cdr)
+	(define (select state pos) (cons pos (hovered state))) ; could add a visual effect
+	(define (hover state pos) (cons (selected state) pos))
+
+	(define (maybe-add-effect opts board state pos moves)
+		(cond
+			((find-move moves (selected state) pos) =>
+				(λ (move) 
+					(highlight-cell pos)
+					pos))
+			(else pos)))
+
+	(define (coords->pos x y)
+		(lets ((x (div x cell)) (y (div y cell)))
+			(if (and (< x s) (< y s))
+				(xy->pos x y)
+				False)))
 
 	(define (act-like-human board opts state x y moves color btn)
-		(if btn
-			(lets
-				((x (div x cell))
-				 (y (div y cell)))
-				(if (and (< x s) (< y s))
-					(let ((pos (+ x (* y s))))
-						(cond
-							((find-move moves state pos) =>
-								(λ (move) (values opts False move)))
-							((eq? color (get board pos False))
-								(values opts pos False))
-							(else
-								(values opts False False))))
-					(values opts False False)))
-			(begin
-				(show "i see mouse at " (cons x y))
-				(values opts state False))))
+		(cond
+			(btn
+				(lets
+					((x (div x cell))
+					 (y (div y cell)))
+					(if (and (< x s) (< y s))
+						(let ((pos (+ x (* y s))))
+							(cond
+								((find-move moves (selected state) pos) =>
+									(λ (move) (values opts state move)))
+								((eq? color (get board pos False))
+									(values opts (select state pos) False))
+								(else ; unselect
+									(values opts (select state False) False))))
+						(values opts (select state False) False))))
+			((coords->pos x y) =>
+				(λ (pos)
+					(if (equal? pos (hovered state))
+						(values opts state False) ; on same cell
+						(begin
+							(remove-effect opts board (hovered state) color)
+							(values opts
+								(hover state
+									(maybe-add-effect opts board state pos moves))
+								False)))))
+			(else
+				(values opts (hover state False) False))))
 
 	(define ataxx
 		(make-board-game
