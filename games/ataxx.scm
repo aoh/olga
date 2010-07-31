@@ -2,6 +2,8 @@
 ;;; ataxx
 ;;;
 
+
+;; todo: the AI is too weak. switch to bitboards and a slightly better eval function based on them.
 ;; todo: allow setting flippage to 4
 ;; todo: when hovering on a movable cell (unique or cloning move) highlight the sources
 ;; todo: when selecting on (or overing on) own cell, highlight the target cells
@@ -260,7 +262,7 @@
 
 	(define ai-imbecile (make-random-player valid-unique-moves))
 	(define ai-easy (make-simple-player valid-unique-moves do-move eval-board 2))
-	(define ai-normal (make-fixed-ply-player 2 valid-unique-moves do-move eval-board eval-board-final True))
+	(define ai-normal (make-alphabeta-player 2 valid-unique-moves do-move eval-board eval-board-final True))
 	(define ai-hard 
 		(make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final True))
 
@@ -388,7 +390,11 @@
 ;	;; AI unit test
 ;	(import lib-test)
 ;	; these should always find moves with equal score 
-;	(define alphabeta (make-fixed-ply-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+;	(define alphabeta (make-alphabeta-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+;	(define killer    (make-ab-killer-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+;	(define fixnum    (make-ab-fixnum-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+;	(define iter-kill (make-iter-killer-player 4 valid-unique-moves do-move eval-board eval-board-final True))
+;	(define iter-trail (make-iter-trail-player 4 valid-unique-moves do-move eval-board eval-board-final True))
 ;	(define minimax   (make-minimax-player   4 valid-unique-moves do-move eval-board eval-board-final True))
 ;	(define (random-ataxx-configuration rst)
 ;		(lets ((rst n (rand rst 10)))
@@ -405,8 +411,8 @@
 ;		(lmap random-ataxx-configuration
 ;			(liter rand-succ 
 ;				(lets ((ss ms (clock))) (* ss (expt (+ ms 1) 3)))))
-;		(λ (board) (lets ((move opts (alphabeta board False 0 black))) (get opts 'score 'bug)))
-;		(λ (board) (lets ((move opts (minimax board False 0 black))) (get opts 'score 'bag))))
+;		(λ (board) (lets ((move opts (iter-trail  board False 0 black))) (get opts 'score 'bug)))
+;		(λ (board) (lets ((move opts (iter-kill board False 0 black))) (get opts 'score 'bag))))
 	
 )
 

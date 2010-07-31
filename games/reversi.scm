@@ -483,7 +483,7 @@
 
 	;; own name useful for adding to menu defaults
 	(define ai-normal
-		(make-fixed-ply-player 2 valid-moves do-move eval-board eval-final True))
+		(make-alphabeta-player 2 valid-moves do-move eval-board eval-final True))
 
 	(define player-options
 		(list
@@ -494,7 +494,7 @@
 			;; fixme: default AI should be nondeterministic
 			(tuple 'option "ai normal"   "" ai-normal) ; default ;; fixme: easy < normal < medium?
 			(tuple 'option "ai medium"   ""
-				(make-iterative-ply-player 3 valid-moves do-move eval-board eval-final True))
+				(make-alphabeta-player 3 valid-moves do-move eval-board eval-final True))
 			(tuple 'option "ai hard"     "" 
 				(make-time-bound-player 3000 valid-moves do-move eval-board eval-final True))))
 

@@ -16,8 +16,11 @@
 		make-random-player			; get-moves → player
 		make-simple-player			; get-moves → do-move → eval-board → factor → player
 		make-minimax-player			; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player 
-		make-fixed-ply-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
-		make-iterative-ply-player	; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
+		make-alphabeta-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
+		make-ab-killer-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
+		make-ab-fixnum-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
+		make-iter-trail-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
+		make-iter-killer-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
 		make-time-bound-player 		; ms get-moves do-move eval eval-final allow-skip?
 	)
 
@@ -139,8 +142,7 @@
 	;;; a classic fixed-ply minimax with α-β 
 	;;;
 
-
-	(define (make-fixed-ply-player ply get-moves do-move eval eval-final allow-skip?)
+	(define (make-alphabeta-player ply get-moves do-move eval eval-final allow-skip?)
 
 		(define (plan-ahead board color α β ply)
 			(if (= ply 0)
@@ -168,6 +170,103 @@
 											(loop (cdr opts) score (car opts))
 											(loop (cdr opts) α best))))
 								(else (values α best))))))))
+
+		(λ (board in last color)
+			(lets ((score move (plan-ahead board color lose win ply)))
+				(values move (put in 'score score)))))
+
+	;;;
+	;;; a classic fixed-ply minimax with α-β and killer move heuristic 
+	;;;
+
+	;; both collecting the best opponent move and last best one (like now) seem to do 
+	;; slightly worse than a vanilla alphabeta, at least in ataxx, so not in use for now.
+
+	(define (lift-move lst move)
+		(if move
+			(let loop ((lst lst) (move move))
+				(cond
+					((null? lst) lst)
+					((equal? (car lst) move) (cons move (cdr lst)))
+					(else
+						(let ((tl (loop (cdr lst) move)))
+							(if (eq? tl lst) lst (cons (car lst) tl))))))
+			lst))
+
+	(define (make-ab-killer-player ply get-moves do-move eval eval-final allow-skip?)
+
+		(define (plan-ahead board color α β ply great)
+			(if (= ply 0)
+				(values (eval board color) no-move)
+				(let ((opts (lift-move (get-moves board color) great)))
+					(if (null? opts)
+						(let ((opp-moves (get-moves board (opponent-of color))))
+							(cond
+								((null? opp-moves) (values (eval-final board color) no-move))
+								(allow-skip? 
+									(lets ((oscore omove (plan-ahead board (opponent-of color) (- 0 β) (- 0 α) ply False)))
+										(values (- 0 oscore) no-move)))
+								(else
+									(values lose no-move))))
+						(let loop ((opts opts) (α α) (best (car opts)) (last False))
+							(cond
+								((null? opts) (values α best))
+								((< α β)
+									(lets
+										((os om (plan-ahead (do-move board (car opts) color)
+														(opponent-of color) (- 0 β) (- 0 α) (- ply 1) last))
+										 (score (- 0 os)))
+										(if (> score α)
+											(loop (cdr opts) score (car opts) om)
+											(loop (cdr opts) α best om))))
+								(else (values α best))))))))
+
+		(λ (board in last color)
+			(lets ((score move (plan-ahead board color lose win ply False)))
+				(values move (put in 'score score)))))
+
+	;;;
+	;;; Alphabeta with small constant primop/fixnum optimizations
+	;;;
+
+	; added just to see that they do not give any significant benefits (seems to be ~5%)
+
+	(define flip negate)
+
+	(define (less? a b)
+		(if (teq? a fix+)
+			(if (teq? b fix+) (lesser? a b) False)
+			(if (teq? b fix+) True (lesser? b a))))
+
+	(define (make-ab-fixnum-player ply get-moves do-move eval eval-final allow-skip?)
+
+		(define (plan-ahead board color α β ply)
+			(if (eq? ply 0)
+				(values (eval board color) no-move)
+				(let ((opts (get-moves board color)))
+					(if (null? opts)
+						(let ((opp-moves (get-moves board (opponent-of color))))
+							(cond
+								((null? opp-moves) (values (eval-final board color) no-move))
+								(allow-skip? 
+									(lets ((oscore omove (plan-ahead board (opponent-of color) (flip β) (flip α) ply)))
+										(values (flip oscore) no-move)))
+								(else
+									; for example chess goes like this
+									(values lose no-move))))
+						(let ((ply (- ply 1)))
+							(let loop ((opts opts) (α α) (best (car opts)))
+								(cond
+									((null? opts) (values α best))
+									((less? α β)
+										(lets
+											((os om (plan-ahead (do-move board (car opts) color)
+															(opponent-of color) (flip β) (flip α) ply))
+											 (score (flip os)))
+											(if (less? score α)
+												(loop (cdr opts) α best)
+												(loop (cdr opts) score (car opts)))))
+									(else (values α best)))))))))
 
 		(λ (board in last color)
 			(lets ((score move (plan-ahead board color lose win ply)))
@@ -208,7 +307,6 @@
 									(lets ((oscore omoves (plan-ahead board (opponent-of color) (- 0 β) (- 0 α) ply (rest moves))))
 										(values (- 0 oscore) (cons no-move omoves))))
 								(else
-									; for example chess goes like this
 									(values lose null))))
 						(let loop ((opts opts) (α α) (best (cons (car opts) (rest moves))))
 							(cond
@@ -227,21 +325,60 @@
 								(else (values α best))))))))
 			plan-ahead)
 
-	(define (make-iterative-ply-player ply get-moves do-move eval eval-final allow-skip?)
+	;;; iterative deepening while collecting trail of best moves
+
+	(define (make-iter-trail-player ply get-moves do-move eval eval-final allow-skip?)
 
 		(define plan-ahead (make-planner eval get-moves do-move eval-final allow-skip?))
 		
 		(λ (board in last color)
-			(values 
-				(car
-					(fold
-						(λ (trail ply)	
-							(lets 
-								((score trail 
-									(plan-ahead board color lose win ply trail)))
-								trail))
-						null (iota 1 1 (+ ply 1))))
-				in)))
+			(let loop ((p 1) (trail null) (score 0))
+				(if (> p ply)
+					(values 
+						(if (null? trail) False (car trail))
+						(put in 'score score))
+					(lets
+						((score trail 
+							(plan-ahead board color lose win ply trail)))
+						(loop (+ p 1) trail score))))))
+
+	;;; iterative deepening without the trail, only for comparing against a run-of-the-mill alphabeta
+
+	(define (make-iter-killer-player ply get-moves do-move eval eval-final allow-skip?)
+
+		(define (plan-ahead board color α β ply great)
+			(if (eq? ply 0)
+				(values (eval board color) no-move)
+				(let ((opts (lift-move (get-moves board color) great)))
+					(if (null? opts)
+						(let ((opp-moves (get-moves board (opponent-of color))))
+							(cond
+								((null? opp-moves) (values (eval-final board color) no-move))
+								(allow-skip? 
+									(lets ((oscore omove (plan-ahead board (opponent-of color) (- 0 β) (- 0 α) ply False)))
+										(values (- 0 oscore) no-move)))
+								(else
+									(values lose no-move))))
+						(let loop ((opts opts) (α α) (best (car opts)) (last False))
+							(cond
+								((null? opts) (values α best))
+								((< α β)
+									(lets
+										((os om (plan-ahead (do-move board (car opts) color)
+														(opponent-of color) (- 0 β) (- 0 α) (- ply 1) last))
+										 (score (- 0 os)))
+										(if (> score α)
+											(loop (cdr opts) score (car opts) om)
+											(loop (cdr opts) α best om))))
+								(else (values α best))))))))
+
+		(λ (board in last color)
+			(let loop ((p 1) (score 0) (move False))
+				(if (> p ply)
+					(values move (put in 'score score))
+						(lets ((score move (plan-ahead board color lose win ply move)))
+							(loop (+ p 1) score move))))))
+
 
 	;;; time bound player, stop planning after the given number of ms have passed
 
