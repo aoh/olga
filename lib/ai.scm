@@ -22,6 +22,7 @@
 		make-iter-trail-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
 		make-iter-killer-player		; ply → get-moves → do-move → eval-board → eval-final-board → allow-skip? → player
 		make-time-bound-player 		; ms get-moves do-move eval eval-final allow-skip?
+		make-time-bound-interesting-player 		; ms get-moves do-move eval eval-final allow-skip?
 	)
 
 	;(import lib-random)
@@ -414,6 +415,135 @@
 										(if (null? trail) False (car trail)))
 									(loop new-trail (+ ply 1)))))))))
 				(values move in))))
+
+	;;; stop planning after given time has run out, and *do not always play the same bloody game*
+
+	; overview: grow trees for a while and pick one of the best ones
+	;	- start growing analysis of result of each possible move (remembering the move)
+	;	- if just one tree left, return the move
+	;	- discard all trees resulting to a losed game 
+	;		+ if all hope is lost, return the first failing move
+	;	- grow each node (containing the trail)
+	;		+ if result is a winning trail, return the move directly
+	;		+ a possibly better alternative would be to 
+	;			o always keep the sprouts sorted by score, best first
+	;			o grow them in order 
+	;			o when timeout, pick move from the *partially completed* level if enough sprouts there
+	; 	- if timeout during one of the nodes
+	;		+ make a score-based weighted choice on the fully computed level
+	;	- otherwise recurse
+
+	; sprout = #(move computed-score trail board color)
+	; (extend sprouts timeout) -> timeout? x results
+	; 
+
+	(define (make-time-bound-interesting-player ms get-moves do-move eval eval-final allow-skip?)
+
+		; pick the best one with 90% probability (and the next best with 90% probability, and so on)
+		; sprouts -> move
+		(define (pick-good-sprout sprouts)
+			(print " - picking sprout")
+			(lets
+				((a (now-ms))
+				 ; these are opponent scores, so pick a small one
+				 (sprouts (sort (λ (a b) (< (ref a 2) (ref b 2))) sprouts))
+				 (b (now-ms)))
+				(ref
+					(let loop ((rst (* a b)) (last (car sprouts)) (sprouts (cdr sprouts)))
+						(lets ((rst choice (rand rst 10)))
+							(cond
+								((null? sprouts) 
+									(print "   + last")
+									last)
+								((eq? choice 0)
+									(print "   + next")
+									(loop rst (car sprouts) (cdr sprouts)))
+								(else 
+									(print "   + this one")
+									last))))
+					1)))
+
+
+		; -> sprout | False
+		(define (grow-sprout sprout ply timeout)
+			(call/cc
+				(λ (ret)
+					(lets 
+						((move score trail board color sprout)
+						 (time-bounded-get-moves
+						 (λ (board color)
+							(if (< (now-ms) timeout) (get-moves board color) (ret 'timeout))))
+						 (plan-ahead 
+							(make-planner eval time-bounded-get-moves do-move eval-final allow-skip?))
+						 (score new-trail 
+						 	(plan-ahead board color lose win ply trail)))
+						(tuple move score new-trail board color)))))
+			
+		; -> False | move
+		(define (shrubber sprouts timeout ply)
+			(show " - growing plys " ply)
+			(show " - scores are " (sort > (map (λ (x) (ref x 2)) sprouts)))
+			(cond
+				((null? sprouts)
+					; all roads lead to failure. return a move knowinly
+					; leading to no good from previous ply.
+					False)
+				((null? (cdr sprouts))
+					; just one option. no use trying to figure out how good it is.
+					(ref (car sprouts) 1))
+				(else
+					(call/cc
+						(λ (ret)
+							(or
+								(shrubber
+									(for null sprouts
+										(λ (out sprout)
+											(let ((new (grow-sprout sprout ply timeout)))
+												(cond
+													((eq? new 'timeout) ; so many options, so little time
+														(ret (pick-good-sprout sprouts)))
+													((eq? (ref new 2) lose) ; opponent loses, i win with this move \o/
+														(ret (ref new 1)))
+													((eq? (ref new 2) win) ; opponent can win after this move. discard sprout.
+														out)
+													(else
+														; made a sprout with deeper knowledge
+														(cons new out))))))
+									timeout (+ ply 1))
+								; dang
+								(ref (car sprouts) 1)))))))
+
+		(λ (board in last color)
+			(print "interesting thinking")
+			(lets
+				((sprouts
+					; should evaluate ply 1 scores also in case there is no time to grow 
+					; them (which are actually 2 as the first layer is the sprouts list)
+					; for now, assuming there is always time
+				 	(map 
+						(λ (move) ; make the move and make opponent's view 
+							(show " -> sprouting of move " move)
+							(tuple move 1 null 
+								(do-move board move color)
+								(opponent-of color)))
+						(get-moves board color))))
+				(if (null? sprouts) ; nothing to grow
+					(values False in)
+					(values (shrubber sprouts (+ (now-ms) ms) 1) in)))))
+					
+	; a possibly better alternative to be implemented later is is 
+	; (make-resource-bound-interesting-player ...), because currently some AIs 
+	; are too weak on a PDA. another option would be to allow setting the AI 
+	; timeout in player selection, or alternatively and more generally add 
+	; timed matches and allow more time for the AI by adjusting the game clock.
+
+	; (those would be fun also as such, because at least i am often in a situation 
+	; where there i find about 3 spare minutes for recreational time, so i could 
+	; set up a blitz game with that timeout :)
+
+	;; todo: collect total player thinkin time in lib-match (color, not player because those may change)
+	;; todo: add verbal abuse/praise when losing/winning with large time differences
+	;; todo: add support for blitz games
 
 )
 

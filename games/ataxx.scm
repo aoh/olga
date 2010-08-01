@@ -344,7 +344,7 @@
 	(define ai-easy   (make-simple-player valid-unique-moves do-move eval-board 3))
 	(define ai-normal (make-alphabeta-player 2 valid-unique-moves do-move eval-board eval-board-final True))
 	(define ai-medium (make-alphabeta-player 3 valid-unique-moves do-move eval-board eval-board-final True))
-	(define ai-hard (make-time-bound-player 3000 valid-unique-moves do-move eval-board-scores eval-board-final True))
+	(define ai-hard (make-time-bound-interesting-player 3000 valid-unique-moves do-move eval-board eval-board-final True))
 	
 	;(define ai-medium (make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final True))
 	;(define ai-hard   (make-time-bound-player 1000 valid-unique-moves do-move eval-board-scores eval-board-final True))
