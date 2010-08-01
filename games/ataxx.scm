@@ -222,16 +222,97 @@
 	(define (make-jump board from to player)
 		(make-move (del board from) to player))
 
-	;;; just count the pieces
+	;;;
+	;;; Evaluation functions
+	;;;
+
+	(define cell-score 10) 
+	(define my-move-bonus 3)
+
+	;; naive, just count the pieces 
 	(define (eval-board-naive board color)
 		(ff-fold
 			(λ (score pos val)
 				(if (eq? val color) 
 					(+ score 1)
 					(- score 1)))
-			0 board))
+			my-move-bonus board))
 
-	; should probably take into account cell-mobility, safety (all neighbours occupied), etc
+	;; a simple 2-pass version adjusting scores by threat-level of cells
+
+	(define (eval-board-simple board color)
+		(define score-ff
+			(for False cells
+				(λ (scores pos)
+					(if (get board pos False)
+						scores
+						(for scores (vec-ref neighbours pos)
+							(λ (scores pos)
+								(put scores pos
+									(- (get scores pos cell-score) 1))))))))
+		(ff-fold
+			(λ (score pos val)
+				(let 
+					((this-score
+						(for cell-score (vec-ref neighbours pos)
+							(λ (score pos)
+								(if (get board pos False)
+									score
+									(- score 1))))))
+					(if (eq? val color)
+						(+ score this-score)
+						(- score this-score))))
+			my-move-bonus board))
+						
+	;; a 1-pass eval with custom cell scores
+
+	(define my-move-bonus 8)
+	;; like center and corners
+	(define scores-1
+		(list->tuple
+			'(  5 4 3 4 5 6 
+			  5 5 4 4 4 5 5 
+			  4 4 5 5 5 4 4 
+			  3 4 5 5 5 4 3 
+			  4 4 5 5 5 4 4 
+			  5 5 4 4 4 5 5 
+			  6 5 4 3 4 5 6)))
+
+	;; like center
+	(define scores-2
+		(list->tuple
+			'(  2 2 2 2 2 3 
+			  2 3 4 4 4 3 2 
+			  2 4 5 5 5 4 2 
+			  2 4 5 6 5 4 2 
+			  2 4 5 3 5 4 2 
+			  2 3 4 4 4 3 2 
+			  3 2 2 2 2 2 3)))
+
+	;; like borders
+	(define scores-3
+		(list->tuple
+			'(  7 7 7 7 7 8 
+			  7 2 2 2 2 2 7 
+			  7 2 3 3 3 2 7 
+			  7 2 3 4 3 2 7 
+			  7 2 3 3 3 2 7 
+			  7 2 2 2 2 2 7 
+			  8 7 7 7 7 7 8)))
+
+	(define scores scores-1)
+
+	(define (eval-board-scores board color)
+		(ff-fold
+			(λ (score pos val)
+				(if (eq? val color) 
+					(if (eq? pos 0)
+						(+ score 6)
+						(+ score (ref scores pos)))
+					(if (eq? pos 0)
+						(- score 6)
+						(- score (ref scores pos)))))
+			my-move-bonus board))
 
 	(define eval-board 
 		eval-board-naive)
@@ -260,11 +341,13 @@
 	; any valid move for the opponent while applicable.
 
 	(define ai-imbecile (make-random-player valid-unique-moves))
-	(define ai-easy (make-simple-player valid-unique-moves do-move eval-board 2))
+	(define ai-easy   (make-simple-player valid-unique-moves do-move eval-board 3))
 	(define ai-normal (make-alphabeta-player 2 valid-unique-moves do-move eval-board eval-board-final True))
 	(define ai-medium (make-alphabeta-player 3 valid-unique-moves do-move eval-board eval-board-final True))
-	(define ai-hard 
-		(make-time-bound-player 3000 valid-unique-moves do-move eval-board eval-board-final True))
+	(define ai-hard (make-time-bound-player 3000 valid-unique-moves do-move eval-board-scores eval-board-final True))
+	
+	;(define ai-medium (make-time-bound-player 1000 valid-unique-moves do-move eval-board eval-board-final True))
+	;(define ai-hard   (make-time-bound-player 1000 valid-unique-moves do-move eval-board-scores eval-board-final True))
 
 	(define empty-board 
 		(list->ff
