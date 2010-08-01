@@ -504,7 +504,7 @@
 			(tuple 'option "ai medium"   ""
 				(make-alphabeta-player 3 valid-moves do-move eval-board eval-final True))
 			(tuple 'option "ai hard"     "" 
-				(make-time-bound-player 3000 valid-moves do-move eval-board eval-final True))))
+				(make-time-bound-interesting-player 3000 valid-moves do-move eval-board eval-final True))))
 
 	(define reversi-menu
 		(tuple 'menu "trolololo" "reversi menu"

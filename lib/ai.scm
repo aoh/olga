@@ -439,30 +439,35 @@
 
 	(define (make-time-bound-interesting-player ms get-moves do-move eval eval-final allow-skip?)
 
-		; pick the best one with 90% probability (and the next best with 90% probability, and so on)
-		; sprouts -> move
-		(define (pick-good-sprout sprouts)
-			(print " - picking sprout")
-			(lets
-				((a (now-ms))
-				 ; these are opponent scores, so pick a small one
-				 (sprouts (sort (λ (a b) (< (ref a 2) (ref b 2))) sprouts))
-				 (b (now-ms)))
-				(ref
-					(let loop ((rst (* a b)) (last (car sprouts)) (sprouts (cdr sprouts)))
-						(lets ((rst choice (rand rst 10)))
-							(cond
-								((null? sprouts) 
-									(print "   + last")
-									last)
-								((eq? choice 0)
-									(print "   + next")
-									(loop rst (car sprouts) (cdr sprouts)))
-								(else 
-									(print "   + this one")
-									last))))
-					1)))
+		(define (return-move sprout)
+			(lets ((move opp-score trail board color sprout))
+				(show " -> score " (- 0 opp-score))
+				move))
 
+		; picking a move:
+		;	- take all moves with the best computed score
+		;	- take one of the next best ones with 10% probability
+		;	- pick a random element of of those
+
+		(define (random-move-of sprouts)
+			(return-move
+				(if (null? (cdr sprouts))
+					(car sprouts)
+					(lref sprouts
+						(rem (now-ms) (length sprouts))))))
+					
+		(define (pick-good-sprout sprouts)
+			(let ((sprouts (sort (λ (a b) (< (ref a 2) (ref b 2))) sprouts)))
+				(let loop ((lst (cdr sprouts)) (out (list (car sprouts))) (score (ref (car sprouts) 2)))
+					(cond
+						((null? lst)
+							(random-move-of out))
+						((= score (ref (car lst) 2))
+							(loop (cdr lst) (cons (car lst) out) score))
+						(True ; (> 5 (lets ((ss ms (clock))) ms))
+							(random-move-of out))
+						(else
+							(random-move-of (cons (car lst) out)))))))
 
 		; -> sprout | False
 		(define (grow-sprout sprout ply timeout)
@@ -481,8 +486,10 @@
 			
 		; -> False | move
 		(define (shrubber sprouts timeout ply)
-			(show " - growing plys " ply)
-			(show " - scores are " (sort > (map (λ (x) (ref x 2)) sprouts)))
+			(print* 
+				(list " - growing ply " 
+				(+ ply 1) ; root is ply 1, so increase to real amount
+				" - scores " (sort < (map (λ (x) (ref x 2)) sprouts))))
 			(cond
 				((null? sprouts)
 					; all roads lead to failure. return a move knowinly
@@ -496,13 +503,19 @@
 						(λ (ret)
 							(or
 								(shrubber
-									(for null sprouts
+									(for null (sort (λ (a b) (< (ref a 2) (ref b 2))) sprouts)
 										(λ (out sprout)
 											(let ((new (grow-sprout sprout ply timeout)))
 												(cond
 													((eq? new 'timeout) ; so many options, so little time
-														(ret (pick-good-sprout sprouts)))
+														(let ((comp (floor (* 100 (/ (length out) (length sprouts))))))
+															(if (< comp 60)
+																(ret (pick-good-sprout sprouts))
+																(begin
+																	(print* (list " + picking from " comp "% complete set of new shrubs"))
+																	(ret (pick-good-sprout out))))))
 													((eq? (ref new 2) lose) ; opponent loses, i win with this move \o/
+														(print " -> i win")
 														(ret (ref new 1)))
 													((eq? (ref new 2) win) ; opponent can win after this move. discard sprout.
 														out)
@@ -511,7 +524,9 @@
 														(cons new out))))))
 									timeout (+ ply 1))
 								; dang
-								(ref (car sprouts) 1)))))))
+								(begin
+									(print " -> i can lose")
+									(ref (car sprouts) 1))))))))
 
 		(λ (board in last color)
 			(print "interesting thinking")
@@ -522,7 +537,6 @@
 					; for now, assuming there is always time
 				 	(map 
 						(λ (move) ; make the move and make opponent's view 
-							(show " -> sprouting of move " move)
 							(tuple move 1 null 
 								(do-move board move color)
 								(opponent-of color)))
