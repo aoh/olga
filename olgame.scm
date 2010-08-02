@@ -59,6 +59,7 @@
 	(grale-put-text font-8px 100 100 #b00001101 "You rescued the prince")
 	(lets ((x y (grale-wait-click))) 42))
 
+,r "games/sudoku.scm"
 ,r "games/ataxx.scm"
 ,r "games/reversi.scm"
 ,r "apps/colortest.scm"
